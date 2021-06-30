@@ -2,6 +2,8 @@ import com.aerospike.client.*;
 import com.aerospike.client.policy.WritePolicy;
 import com.aerospike.client.task.RegisterTask;
 
+import static java.lang.StrictMath.random;
+
 public class UDF_Example {
 
     AerospikeClient client;
@@ -10,7 +12,9 @@ public class UDF_Example {
 
     public static void main( String args [])
     {
-        new UDF_Example().registerLua().insertSomeData();
+        UDF_Example udf = new UDF_Example();
+        udf.registerLua().insertSomeData();
+        udf.registerLua().insertSomeData(10000 );
     }
 
     public UDF_Example()
@@ -37,7 +41,7 @@ public class UDF_Example {
     private UDF_Example registerLua() {
         RegisterTask task = client.register(
                 null,
-                "/Users/nareshmaharaj/Documents/aerospike/projects/expressions/src/main/java/example.lua",
+                "/Users/nareshmaharaj/Documents/aerospike/projects/udf/src/main/java/example.lua",
                 "example.lua", Language.LUA);
         // Poll cluster for completion every second for a maximum of 10 seconds.
         task.waitTillComplete(1000, 10000);
@@ -54,5 +58,27 @@ public class UDF_Example {
 
         useLua( new Key(namespace, set, 10), 22, "weather", "celcius");
         useLua( new Key(namespace, set, 12), 100, "weather", "humidity");
+    }
+
+    private void insertSomeData(int number)
+    {
+        long startTime = System.currentTimeMillis();
+
+        for (int i = 0; i < number; i++) {
+            double r1 =  Math.ceil( Math.random() * 100 );
+            double r2 = Math.ceil( Math.random() * 100 );
+            int rand1 = (int)r1;
+            int rand2 = (int)r2;
+            useLua( new Key(namespace, set, (int)rand1), (int)rand2, "weather", "celcius");
+        }
+
+        long endTime = System.currentTimeMillis();
+        long timeTaken = endTime - startTime;
+        System.out.println( "> TimeTaken " + ( timeTaken / 1000 ) + " seconds for " + number + " docs");
+    }
+
+    private void insertSomeDataAsync(int number)
+    {
+        // see AsyncEventLoop project
     }
 }
