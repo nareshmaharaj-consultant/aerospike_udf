@@ -2,7 +2,6 @@ import com.aerospike.client.*;
 import com.aerospike.client.policy.WritePolicy;
 import com.aerospike.client.task.RegisterTask;
 
-import static java.lang.StrictMath.random;
 
 public class UDF_Example {
 
@@ -13,8 +12,10 @@ public class UDF_Example {
     public static void main( String args [])
     {
         UDF_Example udf = new UDF_Example();
-        udf.registerLua().insertSomeData();
-        udf.registerLua().insertSomeData(10000 );
+        udf.registerLua();
+        udf.insertSomeDataUDF();
+        udf.insertSomeDataUDF(100000 );
+        udf.insertSomeDataNonUDF( 100000 );
     }
 
     public UDF_Example()
@@ -48,19 +49,12 @@ public class UDF_Example {
         return this;
     }
 
-    private void insertSomeData() {
-//        WritePolicy policy = new WritePolicy();
-//        Key key = new Key(namespace, set, 10);
-//        Bin binType = new Bin("type", "weather");
-//        Bin binTemp = new Bin("value", 22);
-//        Bin binMeasure = new Bin("measure", "celcius");
-//        client.put(policy, key, binType, binTemp,binMeasure);
-
+    private void insertSomeDataUDF() {
         useLua( new Key(namespace, set, 10), 22, "weather", "celcius");
         useLua( new Key(namespace, set, 12), 100, "weather", "humidity");
     }
 
-    private void insertSomeData(int number)
+    private void insertSomeDataUDF(int number)
     {
         long startTime = System.currentTimeMillis();
 
@@ -74,11 +68,31 @@ public class UDF_Example {
 
         long endTime = System.currentTimeMillis();
         long timeTaken = endTime - startTime;
-        System.out.println( "> TimeTaken " + ( timeTaken / 1000 ) + " seconds for " + number + " docs");
+        System.out.println( "> TimeTaken UDF is " + ( timeTaken / 1000 ) + " seconds for " + number + " docs");
     }
 
-    private void insertSomeDataAsync(int number)
+    private void insertSomeDataNonUDF(int number)
     {
-        // see AsyncEventLoop project
+        long startTime = System.currentTimeMillis();
+
+        WritePolicy policy = new WritePolicy();
+        for (int i = 0; i < number; i++) {
+
+            double r1 =  Math.ceil( Math.random() * 100 );
+            double r2 = Math.ceil( Math.random() * 100 );
+            int rand1 = (int)r1;
+            int rand2 = (int)r2;
+
+            Key key = new Key(namespace, set, rand1);
+            Bin binType = new Bin("type", "weather");
+            Bin binTemp = new Bin("value", rand2);
+            Bin binMeasure = new Bin("measure", "celcius");
+            client.put(policy, key, binType, binTemp,binMeasure);
+        }
+
+        long endTime = System.currentTimeMillis();
+        long timeTaken = endTime - startTime;
+        System.out.println( "> TimeTaken non UDF is " + ( timeTaken / 1000 ) + " seconds for " + number + " docs");
+
     }
 }
