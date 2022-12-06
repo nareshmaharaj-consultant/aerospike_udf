@@ -6,23 +6,100 @@
 
 ---validateBeforeWrite
 --- Stored on server /opt/aerospike/usr/udf/lua
----@param r table
+---@param rec table
 ---@param bin1 table
 ---@param bin2 table
 ---@param value1 table
 ---@param value2 table
-function validateBeforeWrite( r, bin1, bin2, bin3, value1, value2, value3 )
+function validateBeforeWrite( rec, bin1, bin2, bin3, value1, value2, value3 )
     if ( value1 > 0 and value1 < 110 ) then
-        if not aerospike:exists(r) then
-            r["CreationDate"] = os.date()
-            aerospike:create(r)
+        if not aerospike:exists(rec) then
+            rec["creationDate"] = os.time() * 1000
+            aerospike:create(rec)
         end
-        r[bin1] = value1
-        r[bin2] = value2
-        r[bin3] = value3
-        r["updateTime"] = os.date()
-        aerospike:update(r)
+        rec[bin1] = value1
+        rec[bin2] = value2
+        rec[bin3] = value3
+        rec["updateTime"] = os.time() * 1000
+        aerospike:update(rec)
     else
         error("1000: Invalid value")
     end
+end
+
+function totals(rec, unitsSold, mfgPrice, salesPrice)
+    local unitsSold = tonumber( rec[unitsSold] )
+    local salesPrice = tonumber( rec[salesPrice] )
+    local totalSales = unitsSold * salesPrice
+    rec["totalSales"] = totalSales
+
+    local mfgPrice = rec[mfgPrice]
+    local totalCost = mfgPrice * unitsSold
+    rec["totalCost"] = totalCost
+
+    local profit = totalSales - totalCost
+    rec["profit"] = profit
+
+    rec["profitMargin"] = math.floor( profit / totalSales * 100 )
+    local taxRates = taxCorporationRate(rec["country"]) or 20
+
+    rec["corpTax"] = taxRates
+
+    local corpTaxDue = taxRates * profit / 100
+    if ( corpTaxDue < 0 ) then
+        corpTaxDue = 0
+    end
+    rec["taxDue"] = corpTaxDue
+
+    return aerospike:update(rec)
+end
+
+function taxCorporationRate(country)
+    taxRates = {}
+    taxRates["Canada"] = 26.5
+    taxRates["France"] = 26.5
+    taxRates["Germany"] = 30
+    taxRates["UnitedStatesofAmerica"] = 21
+    taxRates["Mexico"] = 30
+    return taxRates[country]
+end
+
+local function aggregate_stats(out, rec)
+    if out[ rec["country"] ] == nil then
+        out[ rec["country"] ] = ( rec["taxDue"] or 0 )
+    else
+        out[ rec["country"] ] = out[ rec["country"] ]  + ( rec["taxDue"] or 0 )
+    end
+    return out
+end
+
+local function reduce_stats(a, b)
+    local out = map.merge(
+            a,b,
+            function( v1, v2)
+                return round( v1 + v2, 2 )
+            end
+    )
+    return out
+end
+
+function calculateVatDue(stream)
+    return stream :
+    aggregate( map{ country = nil }, aggregate_stats) : reduce(reduce_stats)
+end
+
+function round(num, numDecimalPlaces)
+    local mult = 10^(numDecimalPlaces or 0)
+    if num >= 0 then return math.floor(num * mult + 0.5) / mult
+    else return math.ceil(num * mult - 0.5) / mult end
+end
+
+function slice(rec, bin, a, b)
+    local s = rec[bin]
+    if type(s) == 'string' then
+        local subs = s:sub(a, b)
+        rec[bin] = subs
+        return aerospike:update(rec)
+    end
+    return nil
 end
