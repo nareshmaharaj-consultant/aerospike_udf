@@ -5,6 +5,8 @@ import com.aerospike.client.task.IndexTask;
 import com.aerospike.client.task.RegisterTask;
 import org.junit.Assert;
 
+import java.util.Locale;
+
 
 public class UDFPlayground {
 
@@ -15,16 +17,29 @@ public class UDFPlayground {
 
     public static void main( String args [])
     {
-        UDFPlayground udf = null;
-        try {
-            udf = new UDFPlayground();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        udf.registerLua();
-        udf.insertSomeDataUDF(numberOfEntries );
-        udf.insertSomeDataNonUDF( numberOfEntries );
+        Locale l = convertCountryNameToIsoCode("France");
+        System.out.println( l.getISO3Country() );
+
+//        UDFPlayground udf = null;
+//        try {
+//            udf = new UDFPlayground();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//        udf.registerLua();
+//        udf.insertSomeDataUDF(numberOfEntries );
+//        udf.insertSomeDataNonUDF( numberOfEntries );
     }
+
+    public static Locale convertCountryNameToIsoCode(String countryName) {
+        for (Locale l : Locale.getAvailableLocales()) {
+            if (l.getDisplayCountry().equals(countryName)) {
+                return l;
+            }
+        }
+        return null;
+    }
+
 
     public UDFPlayground() throws Exception {
         AerospikeClient client = new AerospikeClient(null, "localhost", 3000);

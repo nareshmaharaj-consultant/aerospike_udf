@@ -1,16 +1,15 @@
 import com.aerospike.client.*;
 import com.aerospike.client.async.Monitor;
+import com.aerospike.client.policy.AuthMode;
+import com.aerospike.client.policy.ClientPolicy;
+import com.aerospike.client.query.IndexCollectionType;
 import com.aerospike.client.query.IndexType;
 import com.aerospike.client.task.IndexTask;
-import com.aerospike.client.task.RegisterTask;
-
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class UDFExampleRandomDataLoaderSalesLines {
+public class UDFExampleDataLoader {
 
     static int startKeyFrom             = 0;
     static int numberOfClientsLoaders   = 10;
@@ -20,33 +19,46 @@ public class UDFExampleRandomDataLoaderSalesLines {
     static Monitor monitor              = new Monitor();
     static Host[] hosts                 = new Host[] {new Host("127.0.0.1", port)};
     static String dataFilePath          = "sample.cvs";
-    static String luaExamplePath        = "example.lua";
-    static String luaConfigSourcePath   = ".";
     static boolean truncateBeforeStarting;
 
     static AerospikeClient client;
     static String namespace             = "test";
     static String set                   = "set1";
-    static UDFExampleRandomDataLoaderSalesLines udf = null;
+    static String user                  = "admin";
+    static String pwd                   = "admin";
+    static AuthMode authmode            = AuthMode.INTERNAL;
+    static UDFExampleDataLoader udf     = null;
     static SalesData [] salesDataSeed700 = new SalesData[700];
 
+    static ClientPolicy clientPolicy = null;
+    static AtomicInteger numberofRecordsWritten = new AtomicInteger();
+    static AtomicInteger oldCoounter = new AtomicInteger();
 
-    public UDFExampleRandomDataLoaderSalesLines() throws Exception {
-        AerospikeClient client = new AerospikeClient(null, hosts);
+    public UDFExampleDataLoader() throws Exception {
+
+        ClientPolicy clientPolicy = new ClientPolicy();
+        clientPolicy.user = user;
+        clientPolicy.password = pwd;
+        clientPolicy.authMode = authmode;
+        this.clientPolicy = clientPolicy;
+
+        AerospikeClient client = new AerospikeClient(clientPolicy, hosts);
         this.client= client;
-        registerLua();
+        deleteIndex(namespace, set, "country");
+        deleteIndex(namespace, set, "totalSales");
+        deleteIndex(namespace, set, "QF");
         createIndex(namespace, set, "country", IndexType.STRING );
         createIndex(namespace, set, "totalSales", IndexType.NUMERIC );
+        createIndexList(namespace, set, "QF", IndexType.STRING, IndexCollectionType.MAPKEYS );
 
         if ( truncateBeforeStarting )
             client.truncate(null, namespace, set, null);
     }
 
-    public static void main( String args [])
-    {
+    public static void main( String args []) throws InterruptedException {
         try {
             loadProperties();
-            udf = new UDFExampleRandomDataLoaderSalesLines();
+            udf = new UDFExampleDataLoader();
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(0);
@@ -63,9 +75,17 @@ public class UDFExampleRandomDataLoaderSalesLines {
                         "\nStarting key:" + startKeyFrom
         );
 
-
         /* [ Load seed data we can play off ] */
         loadData();
+
+        String statDesc = "Current Rate of writes/sec: ";
+        Timer timer = new Timer();
+        timer.schedule( new TimerTask() {
+            public void run() {
+                System.out.println ( statDesc + (numberofRecordsWritten.get() - oldCoounter.get()) );
+                oldCoounter.set( numberofRecordsWritten.get());
+            }
+        }, 0, 1*1000);
 
 
         /* [ Start client threads - ingest data ] */
@@ -80,15 +100,19 @@ public class UDFExampleRandomDataLoaderSalesLines {
                             namespace,
                             set,
                             hosts,
-                            salesDataSeed700
+                            salesDataSeed700,
+                            clientPolicy,
+                            numberofRecordsWritten
                     );
             R1.start();
         }
+
         monitor.waitTillComplete();
+        timer.cancel();
+        System.out.println ( statDesc + (numberofRecordsWritten.get() - oldCoounter.get()) );
         long endTime = System.currentTimeMillis();
         long timeTaken = endTime - startTime;
-        System.out.println( "> TimeTaken " + ( timeTaken / 1 ) + " ms for " + numberOfRecords + " records.");
-
+        System.out.println( "Total Elapsed TimeTaken " + ( timeTaken / 1 ) + " ms for " + numberOfRecords + " records.");
     }
 
     private static void loadProperties() throws IOException {
@@ -105,10 +129,13 @@ public class UDFExampleRandomDataLoaderSalesLines {
         startKeyFrom = Integer.parseInt(defaultProps.getProperty("startKeyFrom"));
         namespace = defaultProps.getProperty("namespace");
         set = defaultProps.getProperty("set");
+        user = defaultProps.getProperty("user");
+        pwd = defaultProps.getProperty("password");
+        String auth = defaultProps.getProperty("authMode");
+        if ( AuthMode.valueOf(auth) != null )
+            authmode = AuthMode.valueOf(auth);
         hosts = getHosts( defaultProps.getProperty("hosts").split(",")) ;
         dataFilePath = defaultProps.getProperty("dataFilePath");
-        luaExamplePath = defaultProps.getProperty("luaExamplePath");
-        luaConfigSourcePath = defaultProps.getProperty("luaConfigSourcePath");
         truncateBeforeStarting = Boolean.parseBoolean(defaultProps.getProperty("truncateBeforeStarting"));
     }
 
@@ -146,19 +173,18 @@ public class UDFExampleRandomDataLoaderSalesLines {
         return null;
     }
 
-    private UDFExampleRandomDataLoaderSalesLines registerLua() {
-        RegisterTask task = client.register(
-                null,
-                luaExamplePath,
-                "example.lua", Language.LUA);
-        // Poll cluster for completion every second for a maximum of 10 seconds.
-        task.waitTillComplete(1000, 10000);
-        return this;
-    }
-
     public void createIndex(String ns, String set, String bin, IndexType type ) throws Exception {
         IndexTask task = client.createIndex(null, ns, set,  bin.concat("_idx"), bin, type);
         task.waitTillComplete();
-        int status = task.queryStatus();
+    }
+
+    public void createIndexList(String ns, String set, String bin, IndexType type, IndexCollectionType ict ) throws Exception {
+        IndexTask task = client.createIndex(null, ns, set,  bin.concat("_idx"), bin, type, ict);
+        task.waitTillComplete();
+    }
+
+    public void deleteIndex(String ns, String set, String bin ) throws Exception {
+        IndexTask task = client.dropIndex(null, ns, set,  bin.concat("_idx"));
+        task.waitTillComplete();
     }
 }

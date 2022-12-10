@@ -27,7 +27,7 @@ function validateBeforeWrite( rec, bin1, bin2, bin3, value1, value2, value3 )
     end
 end
 
-function totals(rec, unitsSold, mfgPrice, salesPrice)
+function totals(rec, unitsSold, mfgPrice, salesPrice, queryFieldValue)
     local unitsSold = tonumber( rec[unitsSold] )
     local salesPrice = tonumber( rec[salesPrice] )
     local totalSales = unitsSold * salesPrice
@@ -43,13 +43,25 @@ function totals(rec, unitsSold, mfgPrice, salesPrice)
     rec["profitMargin"] = math.floor( profit / totalSales * 100 )
     local taxRates = taxCorporationRate(rec["country"]) or 20
 
-    rec["corpTax"] = taxRates
+    rec["taxRates"] = taxRates
 
-    local corpTaxDue = taxRates * profit / 100
-    if ( corpTaxDue < 0 ) then
-        corpTaxDue = 0
+    local taxDue = taxRates * profit / 100
+    if ( taxDue < 0 ) then
+        taxDue = 0
     end
-    rec["taxDue"] = corpTaxDue
+    rec["taxDue"] = taxDue
+
+    --queryFieldValue required as we cant use Exp with queryAggregate for fine grained filter.
+    if rec["QF"] == nil then
+        local m = map()
+        m[queryFieldValue]=1
+        rec["QF"] = m
+    else
+        local m = rec["QF"]
+        m[queryFieldValue] =1
+        rec["QF"] = m
+    end
+    --rec["QF"] = queryFieldValue
 
     return aerospike:update(rec)
 end

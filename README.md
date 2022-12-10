@@ -1,5 +1,5 @@
 # aerospike_udf
-```UDFExampleRandomDataLoaderSalesLines```
+```UDFExampleDataLoader```
   - Used for loading the sample sales data
   - there is a main class 
   - configure it from the property file

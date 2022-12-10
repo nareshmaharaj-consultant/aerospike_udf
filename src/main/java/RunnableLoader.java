@@ -1,10 +1,12 @@
 import com.aerospike.client.*;
 import com.aerospike.client.async.Monitor;
 import com.aerospike.client.policy.BatchPolicy;
+import com.aerospike.client.policy.ClientPolicy;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 class RunnableLoader implements Runnable {
 
@@ -17,6 +19,7 @@ class RunnableLoader implements Runnable {
     private String threadName;
     AerospikeClient client;
     Monitor monitor;
+    AtomicInteger numberofRecordsWritten;
 
     RunnableLoader(String name,
                    int numOfRecords,
@@ -25,16 +28,19 @@ class RunnableLoader implements Runnable {
                    String namespace,
                    String set,
                    Host[] hosts,
-                   SalesData[] salesDataSeed700
-    ) {
+                   SalesData[] salesDataSeed700,
+                   ClientPolicy clientPolicy,
+                   AtomicInteger numberofRecordsWritten ) {
+
         threadName = name;
-        this.client = new AerospikeClient(null, hosts );
+        this.client = new AerospikeClient(clientPolicy, hosts );
         this.numberOfDocuments = numOfRecords;
         this.startKey = startKey;
         this.monitor = monitor;
         this.namespace = namespace;
         this.set = set;
         this.salesData = salesDataSeed700;
+        this.numberofRecordsWritten = numberofRecordsWritten;
     }
 
     @Override
@@ -50,8 +56,9 @@ class RunnableLoader implements Runnable {
             int next    = random.nextInt(salesData.length);
             Operation[] operations = salesData[ next ].getOperationRandomiseData();
             records.add(new BatchWrite(key,operations));
+            numberofRecordsWritten.incrementAndGet();
 
-            if (i % UDFExampleRandomDataLoaderSalesLines.batchWriteLump == 0 ){
+            if (i % UDFExampleDataLoader.batchWriteLump == 0 ){
                 client.operate(bPolicy,records);
                 records.clear();
             }
