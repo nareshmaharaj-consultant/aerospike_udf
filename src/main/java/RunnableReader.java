@@ -44,21 +44,33 @@ class RunnableReader implements Runnable {
     @Override
     public void run()
     {
-        /* Used as a filter field later in the aggregation */
-        String queryFieldValue = convertCountryNameToIsoCode(country);
-        queryFieldValue = queryFieldValue.concat(":").concat("SP");
+        /*
+            - 'queryFieldValue' used as a filter field later in the aggregation
+            - we store this in a map value like FRA:SP, where FRA is the country code
+              and SP is the selection criteria for Segment and Product.
+
+              It means that we have computed data and its indexed for querying. If we
+              did not do this we would need to search for country, segment and product,
+              where Filter might take country, but we cannot use Exp with for segment and
+              product becuase we cannot use Exp with client.queryAggregate()
+         */
+        String localeISO3 = convertCountryNameToIsoCode(country);
+        String queryFieldValueSegmentProduct = localeISO3.concat(":").concat("SP");
 
         /* Calculate some new bins */
-        long timeTaken = calculateProfit( country, segment, product, queryFieldValue );
-        System.out.println( "Compute Profit bins for " + queryFieldValue + " in " + ( timeTaken ) + " ms.");
+        long timeTaken = calculateProfit( country, segment, product, queryFieldValueSegmentProduct );
+        System.out.println( "Compute Profit bins for " + queryFieldValueSegmentProduct + " in " + ( timeTaken ) + " ms.");
 
         /* Country filter & would-be Exp fields already built into this field queryFieldValue */
-        Object [] result = getVat( Filter.contains("QF", IndexCollectionType.MAPKEYS, queryFieldValue) );
+        Object [] result = getVat( Filter.contains("QF", IndexCollectionType.MAPKEYS, queryFieldValueSegmentProduct) );
         if ( result != null ) {
-            System.out.println(  "Total Vat for " + queryFieldValue + " = " + (result[0] == null ? "null" : result[0]) + " in "   + (result[1] == null ? "null" : result[1]) + " ms.");
+            System.out.println(
+                    "Total Vat for " + queryFieldValueSegmentProduct + " = "
+                    + (result[0] == null ? "null" : result[0]) + " in "
+                    + (result[1] == null ? "null" : result[1]) + " ms.");
         }
         else {
-            System.out.println("No results for " + queryFieldValue);
+            System.out.println("No results for " + queryFieldValueSegmentProduct);
         }
 
         client.close();

@@ -42,7 +42,7 @@ public class UDFExampleReporting {
     public static void main( String args [])
     {
         if ( args.length != 3 ){
-            System.out.println( "Enter: Country, Segment and Product\ne.g.: France, Retail, \"Connect for JMS\"");
+            System.out.println( "Enter: Country, Segment and Product\ne.g.: France Retail \"Connect for JMS\"");
             System.exit(0);
         }
 
