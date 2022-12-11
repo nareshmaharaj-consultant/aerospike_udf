@@ -27,7 +27,7 @@ function validateBeforeWrite( rec, bin1, bin2, bin3, value1, value2, value3 )
     end
 end
 
-function totals(rec, unitsSold, mfgPrice, salesPrice, queryFieldValue)
+function totals(rec, unitsSold, mfgPrice, salesPrice, queryFieldValue, queryFieldBinName)
     local unitsSold = tonumber( rec[unitsSold] )
     local salesPrice = tonumber( rec[salesPrice] )
     local totalSales = unitsSold * salesPrice
@@ -41,7 +41,7 @@ function totals(rec, unitsSold, mfgPrice, salesPrice, queryFieldValue)
     rec["profit"] = profit
 
     rec["profitMargin"] = math.floor( profit / totalSales * 100 )
-    local taxRates = taxCorporationRate(rec["country"]) or 20
+    local taxRates = vatRate(rec["country"]) or 20
 
     rec["taxRates"] = taxRates
 
@@ -52,26 +52,26 @@ function totals(rec, unitsSold, mfgPrice, salesPrice, queryFieldValue)
     rec["taxDue"] = taxDue
 
     --queryFieldValue required as we cant use Exp with queryAggregate for fine grained filter.
-    if rec["QF"] == nil then
+    if rec[queryFieldBinName] == nil then
         local m = map()
         m[queryFieldValue]=1
-        rec["QF"] = m
+        rec[queryFieldBinName] = m
     else
-        local m = rec["QF"]
+        local m = rec[queryFieldBinName]
         m[queryFieldValue] =1
-        rec["QF"] = m
+        rec[queryFieldBinName] = m
     end
     return aerospike:update(rec)
 end
 
-function taxCorporationRate(country)
-    taxRates = {}
-    taxRates["Canada"] = 26.5
-    taxRates["France"] = 26.5
-    taxRates["Germany"] = 30
-    taxRates["UnitedStatesofAmerica"] = 21
-    taxRates["Mexico"] = 30
-    return taxRates[country]
+function vatRate(country)
+    vatRates = {}
+    vatRates["Canada"] = 26.5
+    vatRates["France"] = 26.5
+    vatRates["Germany"] = 30
+    vatRates["UnitedStatesofAmerica"] = 21
+    vatRates["Mexico"] = 30
+    return vatRates[country]
 end
 
 -- REDUCER
@@ -114,19 +114,6 @@ function calculateVatDue(stream)
     return stream                                     :
     aggregate( map{ country = nil }, aggregate_vatDue): reduce(reduce_stream)
 end
-
-
---local function reduce_vatDue(a, b)
---    local out = map.merge(
---            a,b,
---            function( v1, v2)
---                return round( v1 + v2, 2 )
---            end
---    )
---    return out
---end
-
-
 
 function round(num, numDecimalPlaces)
     local mult = 10^(numDecimalPlaces or 0)

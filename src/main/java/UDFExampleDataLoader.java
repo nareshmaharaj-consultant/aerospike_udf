@@ -46,10 +46,10 @@ public class UDFExampleDataLoader {
         this.client= client;
         deleteIndex(namespace, set, "country");
         deleteIndex(namespace, set, "totalSales");
-        deleteIndex(namespace, set, "QF");
+        deleteIndex(namespace, set, "queryField");
         createIndex(namespace, set, "country", IndexType.STRING );
         createIndex(namespace, set, "totalSales", IndexType.NUMERIC );
-        createIndexList(namespace, set, "QF", IndexType.STRING, IndexCollectionType.MAPKEYS );
+        createIndexList(namespace, set, "queryField", IndexType.STRING, IndexCollectionType.MAPKEYS );
 
         if ( truncateBeforeStarting )
             client.truncate(null, namespace, set, null);

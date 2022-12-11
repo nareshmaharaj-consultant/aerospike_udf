@@ -25,8 +25,10 @@ class RunnableReader implements Runnable {
     private String segment;
     private String product;
 
-    private final String COUNTRY_SEGMENT_PRODUCT = "CSP";
-    private final String COUNTRY_SEGMENT = "CS";
+    private final String QF_COUNTRY_SEGMENT_PRODUCT = "CSP";
+    private final String QF_COUNTRY_SEGMENT = "CS";
+    private final String QF_COUNTRY = "C";
+    private final String QF_BIN_NAME = "queryField";
 
     RunnableReader(String name, Monitor monitor, String namespace,
                    String set, Host[] hosts, String luaConfigSourcePath,
@@ -56,19 +58,28 @@ class RunnableReader implements Runnable {
     public void run()
     {
         /* Calculate profit & store for country, segment and product */
-        populateProfit(country, COUNTRY_SEGMENT_PRODUCT);
+        populateProfit(country, QF_COUNTRY_SEGMENT_PRODUCT);
 
         /* Get VAT due for country, segment and product */
-        query(country, COUNTRY_SEGMENT_PRODUCT, "example", "calculateVatDue", "VAT");
+        query(country, QF_COUNTRY_SEGMENT_PRODUCT, "example", "calculateVatDue", "VAT");
 
         /* Calculate profit & store for country, segment */
-        populateProfit(country, COUNTRY_SEGMENT);
+        populateProfit(country, QF_COUNTRY_SEGMENT);
 
         /* Get total Sales for country, segment */
-        query(country, COUNTRY_SEGMENT, "example", "calculateSales", "SALES");
+        query(country, QF_COUNTRY_SEGMENT, "example", "calculateSales", "SALES");
 
         /* Get VAT for country, segment */
-        query(country, COUNTRY_SEGMENT, "example", "calculateVatDue", "VAT");
+        query(country, QF_COUNTRY_SEGMENT, "example", "calculateVatDue", "VAT");
+
+        /* Calculate profit & store for country */
+        populateProfit(country, QF_COUNTRY);
+
+        /* Get VAT for country */
+        query(country, QF_COUNTRY, "example", "calculateVatDue", "VAT");
+
+        /* Get total Sales for country */
+        query(country, QF_COUNTRY, "example", "calculateSales", "SALES");
 
         client.close();
         monitor.notifyComplete();
@@ -117,7 +128,8 @@ class RunnableReader implements Runnable {
                 Value.get("unitsSold"),
                 Value.get("mfgPrice"),
                 Value.get("salesPrice"),
-                Value.get( queryFieldValue )
+                Value.get( queryFieldValue ),
+                Value.get( QF_BIN_NAME )
         );
         et.waitTillComplete();
         long endTime = System.currentTimeMillis();
@@ -137,7 +149,7 @@ class RunnableReader implements Runnable {
     private Object[] getAggregationReport(String country, String queryField, String packageName, String functionName ) {
 
         String queryFieldValue = getQueryTypeValue(country, queryField);
-        Filter f = Filter.contains("QF", IndexCollectionType.MAPKEYS, queryFieldValue);
+        Filter f = Filter.contains(QF_BIN_NAME, IndexCollectionType.MAPKEYS, queryFieldValue);
 
         long startTime = System.currentTimeMillis();
         LuaConfig.SourceDirectory = luaConfigSourcePath;
@@ -161,17 +173,19 @@ class RunnableReader implements Runnable {
 
     public Exp getQueryTypeExp(String queryType){
 
-        if ( queryType.equalsIgnoreCase(COUNTRY_SEGMENT_PRODUCT) )
+        if ( queryType.equalsIgnoreCase(QF_COUNTRY_SEGMENT_PRODUCT) )
                 return  Exp.and(
                     Exp.eq(Exp.stringBin("country"), Exp.val(country)),
                     Exp.eq(Exp.stringBin("segment"), Exp.val(segment)),
                     Exp.eq(Exp.stringBin("product"), Exp.val(product))
                 );
-        else if (queryType.equalsIgnoreCase(COUNTRY_SEGMENT) )
+        else if (queryType.equalsIgnoreCase(QF_COUNTRY_SEGMENT) )
                 return  Exp.and(
                         Exp.eq(Exp.stringBin("country"), Exp.val(country)),
                         Exp.eq(Exp.stringBin("segment"), Exp.val(segment))
                 );
+        else if (queryType.equalsIgnoreCase(QF_COUNTRY) )
+            return Exp.eq(Exp.stringBin("country"), Exp.val(country));
         return null;
     }
 
