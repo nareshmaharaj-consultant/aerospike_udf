@@ -76,7 +76,33 @@ function taxCorporationRate(country)
     return taxRates[country]
 end
 
-local function aggregate_stats(out, rec)
+-- SALES
+local function aggregate_sales(out, rec)
+    if out[ rec["country"] ] == nil then
+        out[ rec["country"] ] = ( rec["totalSales"] or 0 )
+    else
+        out[ rec["country"] ] = out[ rec["country"] ]  + ( rec["totalSales"] or 0 )
+    end
+    return out
+end
+
+local function reduce_sales(a, b)
+    local out = map.merge(
+            a,b,
+            function( v1, v2)
+                return round( v1 + v2, 2 )
+            end
+    )
+    return out
+end
+
+function calculateSales(stream)
+    return stream                                     :
+    aggregate( map{ country = nil }, aggregate_sales): reduce(reduce_sales)
+end
+
+-- VAT DUE
+local function aggregate_vatDue(out, rec)
     if out[ rec["country"] ] == nil then
         out[ rec["country"] ] = ( rec["taxDue"] or 0 )
     else
@@ -85,7 +111,7 @@ local function aggregate_stats(out, rec)
     return out
 end
 
-local function reduce_stats(a, b)
+local function reduce_vateDue(a, b)
     local out = map.merge(
             a,b,
             function( v1, v2)
@@ -96,8 +122,8 @@ local function reduce_stats(a, b)
 end
 
 function calculateVatDue(stream)
-    return stream :
-    aggregate( map{ country = nil }, aggregate_stats) : reduce(reduce_stats)
+    return stream                                     :
+    aggregate( map{ country = nil }, aggregate_vatDue): reduce(reduce_vateDue)
 end
 
 function round(num, numDecimalPlaces)
