@@ -61,8 +61,6 @@ function totals(rec, unitsSold, mfgPrice, salesPrice, queryFieldValue)
         m[queryFieldValue] =1
         rec["QF"] = m
     end
-    --rec["QF"] = queryFieldValue
-
     return aerospike:update(rec)
 end
 
@@ -76,17 +74,8 @@ function taxCorporationRate(country)
     return taxRates[country]
 end
 
--- SALES
-local function aggregate_sales(out, rec)
-    if out[ rec["country"] ] == nil then
-        out[ rec["country"] ] = ( rec["totalSales"] or 0 )
-    else
-        out[ rec["country"] ] = out[ rec["country"] ]  + ( rec["totalSales"] or 0 )
-    end
-    return out
-end
-
-local function reduce_sales(a, b)
+-- REDUCER
+local function reduce_stream(a, b)
     local out = map.merge(
             a,b,
             function( v1, v2)
@@ -96,9 +85,14 @@ local function reduce_sales(a, b)
     return out
 end
 
-function calculateSales(stream)
-    return stream                                     :
-    aggregate( map{ country = nil }, aggregate_sales): reduce(reduce_sales)
+-- SALES
+local function aggregate_sales(out, rec)
+    if out[ rec["country"] ] == nil then
+        out[ rec["country"] ] = ( rec["totalSales"] or 0 )
+    else
+        out[ rec["country"] ] = out[ rec["country"] ]  + ( rec["totalSales"] or 0 )
+    end
+    return out
 end
 
 -- VAT DUE
@@ -111,20 +105,28 @@ local function aggregate_vatDue(out, rec)
     return out
 end
 
-local function reduce_vateDue(a, b)
-    local out = map.merge(
-            a,b,
-            function( v1, v2)
-                return round( v1 + v2, 2 )
-            end
-    )
-    return out
+function calculateSales(stream)
+    return stream                                     :
+    aggregate( map{ country = nil }, aggregate_sales): reduce(reduce_stream)
 end
 
 function calculateVatDue(stream)
     return stream                                     :
-    aggregate( map{ country = nil }, aggregate_vatDue): reduce(reduce_vateDue)
+    aggregate( map{ country = nil }, aggregate_vatDue): reduce(reduce_stream)
 end
+
+
+--local function reduce_vatDue(a, b)
+--    local out = map.merge(
+--            a,b,
+--            function( v1, v2)
+--                return round( v1 + v2, 2 )
+--            end
+--    )
+--    return out
+--end
+
+
 
 function round(num, numDecimalPlaces)
     local mult = 10^(numDecimalPlaces or 0)
