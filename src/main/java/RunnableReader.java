@@ -57,11 +57,18 @@ class RunnableReader implements Runnable {
     {
         /* Calculate profit & store for country, segment and product */
         populateProfit(country, COUNTRY_SEGMENT_PRODUCT);
+
+        /* Get VAT due for country, segment and product */
         query(country, COUNTRY_SEGMENT_PRODUCT, "example", "calculateVatDue", "VAT");
 
         /* Calculate profit & store for country, segment */
         populateProfit(country, COUNTRY_SEGMENT);
+
+        /* Get total Sales for country, segment */
         query(country, COUNTRY_SEGMENT, "example", "calculateSales", "SALES");
+
+        /* Get VAT for country, segment */
+        query(country, COUNTRY_SEGMENT, "example", "calculateVatDue", "VAT");
 
         client.close();
         monitor.notifyComplete();

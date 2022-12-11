@@ -41,7 +41,7 @@ public class UDFExampleReporting {
 
     public static void main( String args [])
     {
-        if ( args.length != 3 ){
+        if ( args.length < 2 ){
             System.out.println( "" +
                     "Enter: Country, Segment and Product\n" +
                     "e.g.: France Retail \"Connect for JMS\"");
@@ -49,8 +49,8 @@ public class UDFExampleReporting {
         }
 
         String country = null; if ( args.length> 0  ) country = args[0];
-        String segment = null; if ( args.length> 0  ) segment = args[1];
-        String product = null; if ( args.length> 0  ) product = args[2];
+        String segment = null; if ( args.length> 1  ) segment = args[1];
+        String product = null; if ( args.length> 2  ) product = args[2];
 
         try {
             loadProperties();
