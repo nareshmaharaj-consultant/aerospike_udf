@@ -107,7 +107,7 @@ end
 
 function calculateSales(stream)
     return stream                                     :
-    aggregate( map{ country = nil }, aggregate_sales): reduce(reduce_stream)
+    aggregate( map{ country = nil }, aggregate_sales ): reduce(reduce_stream)
 end
 
 function calculateVatDue(stream)

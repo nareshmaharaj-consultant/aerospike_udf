@@ -98,9 +98,9 @@ public class UDFExampleReporting {
 //                            RunnableReader.OPERATION_REPORT_LABEL_NONE
 
 // Query
-                            RunnableReader.OPERATION_TYPE_QUERY,
-                            RunnableReader.QF_COUNTRY,
-                            RunnableReader.OPERATION_REPORT_LABEL_SALES
+//                            RunnableReader.OPERATION_TYPE_QUERY,
+//                            RunnableReader.QF_COUNTRY,
+//                            RunnableReader.OPERATION_REPORT_LABEL_SALES
 
 //                            RunnableReader.OPERATION_TYPE_QUERY,
 //                            RunnableReader.QF_COUNTRY,
@@ -114,9 +114,9 @@ public class UDFExampleReporting {
 //                            RunnableReader.QF_COUNTRY_SEGMENT,
 //                            RunnableReader.OPERATION_REPORT_LABEL_VAT
 
-//                            RunnableReader.OPERATION_TYPE_QUERY,
-//                            RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
-//                            RunnableReader.OPERATION_REPORT_LABEL_SALES
+                            RunnableReader.OPERATION_TYPE_QUERY,
+                            RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
+                            RunnableReader.OPERATION_REPORT_LABEL_SALES
 
 //                            RunnableReader.OPERATION_TYPE_QUERY,
 //                            RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,

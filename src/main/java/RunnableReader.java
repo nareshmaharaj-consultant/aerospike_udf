@@ -175,7 +175,6 @@ class RunnableReader implements Runnable {
      * @return
      */
     private Object[] getAggregationReport(String country, String queryField, String packageName, String functionName ) {
-
         String queryFieldMapValue = getQueryFieldMapValue(queryField);
         Filter f = Filter.contains(QF_BIN_NAME, IndexCollectionType.MAPVALUES, queryFieldMapValue);
 
