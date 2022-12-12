@@ -8,6 +8,7 @@ import com.aerospike.client.task.RegisterTask;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.Vector;
 
@@ -21,6 +22,14 @@ public class UDFExampleReporting {
     static int port                     = 3000;
     static Monitor monitor              = new Monitor();
     static Host[] hosts                 = new Host[] {new Host("127.0.0.1", port)};
+
+    static String operationQueryType;
+    static String operationQueryFilter;
+    static String operationQueryReportLabel;
+    static String country;
+    static String segment;
+    static String product;
+
 
     static AerospikeClient client;
     static String namespace             = "test";
@@ -46,42 +55,40 @@ public class UDFExampleReporting {
     }
 
     public static void main( String args []) throws InterruptedException {
-        if ( args.length < 1 ){
-            System.out.println( "" +
-                    "Enter: Country, Segment and Product\n" +
-                    "e.g.: France Retail \"Connect for JMS\"");
-            System.exit(0);
-        }
-
-        String country = null; if ( args.length> 0  ) country = args[0];
-        String segment = null; if ( args.length> 1  ) segment = args[1];
-        String product = null; if ( args.length> 2  ) product = args[2];
-
+        /*
+            Load the property file
+            Load the lue files
+         */
         try {
             loadProperties();
             udfReader = new UDFExampleReporting();
+            udfReader.registerLua();
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(0);
         }
 
-        udfReader.registerLua();
+        /*
+            Need to kill the readers sometime..
+         */
         Vector<RunnableReader> readers = new Vector<>();
 
-//        OperationJob operationJob = new OperationJob(
-//                RunnableReader.OPERATION_TYPE_COMPUTE,
-//                RunnableReader.QF_COUNTRY,
-//                RunnableReader.OPERATION_REPORT_LABEL_NONE,
-//                delayBetweenJobMs
-//        );
+        /*
+            Set up the job
+         */
+        int jobType = operationQueryType.equalsIgnoreCase("compute ") ?
+                RunnableReader.OPERATION_TYPE_COMPUTE: RunnableReader.OPERATION_TYPE_QUERY;
 
-        OperationJob operationJob = new OperationJob(
-                RunnableReader.OPERATION_TYPE_QUERY,
-                RunnableReader.QF_COUNTRY,
-                RunnableReader.OPERATION_REPORT_LABEL_SALES,
-                delayBetweenJobMs
-        );
+        int jobReportLabel = operationQueryReportLabel.equalsIgnoreCase("sales") ?
+                RunnableReader.OPERATION_REPORT_LABEL_SALES:RunnableReader.OPERATION_REPORT_LABEL_VAT;
 
+        String jobSelection = operationQueryFilter.toUpperCase(Locale.ROOT);
+
+        OperationJob operationJobQueryCS = new OperationJob(jobType, jobSelection, jobReportLabel, delayBetweenJobMs);
+
+        /*
+            Carries for connection details
+         */
         AerospikeConnectionDetails aerospikeConnectionDetails = new AerospikeConnectionDetails(
                 "Aerospike Connection",
                 monitor,
@@ -92,14 +99,16 @@ public class UDFExampleReporting {
                 clientPolicy
         );
 
-        /* [ Start client threads - reading data ] */
+        /*
+            Start client threads - reading data
+        */
         for (int i = 0; i < numberOfClientsReaders; i++ )
         {
             aerospikeConnectionDetails.setName("Aerospike Connection: ".concat(Integer.toString(i)));
             RunnableReader R1 =
                     new RunnableReader(
                             aerospikeConnectionDetails,
-                            operationJob,
+                            operationJobQueryCS,
                             country,
                             segment,
                             product
@@ -147,6 +156,12 @@ public class UDFExampleReporting {
             authmode = AuthMode.valueOf(auth);
         timeForJobMs = Long.parseLong(defaultProps.getProperty("timeForJobMs"));
         delayBetweenJobMs = Long.parseLong(defaultProps.getProperty("delayBetweenJobMs"));
+        operationQueryType = defaultProps.getProperty("operationQueryType");
+        operationQueryFilter = defaultProps.getProperty("operationQueryFilter");
+        operationQueryReportLabel = defaultProps.getProperty("operationQueryReportLabel");
+        country = defaultProps.getProperty("queryFilterCountry");
+        segment = defaultProps.getProperty("queryFilterSegment");
+        product = defaultProps.getProperty("queryFilterProduct");
     }
     private static Host[] getHosts(String [] listOfIps) {
         Host[] tmpHost = new Host[listOfIps.length];
@@ -157,45 +172,6 @@ public class UDFExampleReporting {
     }
 }
 
-/*
-        // Compute
-        RunnableReader.OPERATION_TYPE_COMPUTE,
-        RunnableReader.QF_COUNTRY,
-        RunnableReader.OPERATION_REPORT_LABEL_NONE
-
-        RunnableReader.OPERATION_TYPE_COMPUTE,
-        RunnableReader.QF_COUNTRY_SEGMENT,
-        RunnableReader.OPERATION_REPORT_LABEL_NONE
-
-        RunnableReader.OPERATION_TYPE_COMPUTE,
-        RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
-        RunnableReader.OPERATION_REPORT_LABEL_NONE
-
-        // Query
-        RunnableReader.OPERATION_TYPE_QUERY,
-        RunnableReader.QF_COUNTRY,
-        RunnableReader.OPERATION_REPORT_LABEL_SALES
-
-        RunnableReader.OPERATION_TYPE_QUERY,
-        RunnableReader.QF_COUNTRY,
-        RunnableReader.OPERATION_REPORT_LABEL_VAT
-
-        RunnableReader.OPERATION_TYPE_QUERY,
-        RunnableReader.QF_COUNTRY_SEGMENT,
-        RunnableReader.OPERATION_REPORT_LABEL_SALES
-
-        RunnableReader.OPERATION_TYPE_QUERY,
-        RunnableReader.QF_COUNTRY_SEGMENT,
-        RunnableReader.OPERATION_REPORT_LABEL_VAT
-
-        RunnableReader.OPERATION_TYPE_QUERY,
-        RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
-        RunnableReader.OPERATION_REPORT_LABEL_SALES
-
-        RunnableReader.OPERATION_TYPE_QUERY,
-        RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
-        RunnableReader.OPERATION_REPORT_LABEL_VAT
-     */
 class OperationJob
 {
     int operation;
