@@ -16,7 +16,8 @@ import static java.lang.Thread.sleep;
 public class UDFExampleReporting {
 
     static int numberOfClientsReaders   = 10;
-    static long timeForJobMs             = 1000L;
+    static long timeForJobMs            = 1000L;
+    static long delayBetweenJobMs       = 1000L;
     static int port                     = 3000;
     static Monitor monitor              = new Monitor();
     static Host[] hosts                 = new Host[] {new Host("127.0.0.1", port)};
@@ -67,60 +68,41 @@ public class UDFExampleReporting {
         udfReader.registerLua();
         Vector<RunnableReader> readers = new Vector<>();
 
+//        OperationJob operationJob = new OperationJob(
+//                RunnableReader.OPERATION_TYPE_COMPUTE,
+//                RunnableReader.QF_COUNTRY,
+//                RunnableReader.OPERATION_REPORT_LABEL_NONE,
+//                delayBetweenJobMs
+//        );
+
+        OperationJob operationJob = new OperationJob(
+                RunnableReader.OPERATION_TYPE_QUERY,
+                RunnableReader.QF_COUNTRY,
+                RunnableReader.OPERATION_REPORT_LABEL_SALES,
+                delayBetweenJobMs
+        );
+
+        AerospikeConnectionDetails aerospikeConnectionDetails = new AerospikeConnectionDetails(
+                "Aerospike Connection",
+                monitor,
+                namespace,
+                set,
+                hosts,
+                luaConfigSourcePath,
+                clientPolicy
+        );
+
         /* [ Start client threads - reading data ] */
         for (int i = 0; i < numberOfClientsReaders; i++ )
         {
+            aerospikeConnectionDetails.setName("Aerospike Connection: ".concat(Integer.toString(i)));
             RunnableReader R1 =
                     new RunnableReader(
-                            "Aerospike Connection: ".concat(Integer.toString(i)),
-                            monitor,
-                            namespace,
-                            set,
-                            hosts,
-                            luaConfigSourcePath,
-                            clientPolicy,
+                            aerospikeConnectionDetails,
+                            operationJob,
                             country,
                             segment,
-                            product,
-
-// Compute
-
-//                            RunnableReader.OPERATION_TYPE_COMPUTE,
-//                            RunnableReader.QF_COUNTRY,
-//                            RunnableReader.OPERATION_REPORT_LABEL_NONE
-
-//                            RunnableReader.OPERATION_TYPE_COMPUTE,
-//                            RunnableReader.QF_COUNTRY_SEGMENT,
-//                            RunnableReader.OPERATION_REPORT_LABEL_NONE
-
-//                            RunnableReader.OPERATION_TYPE_COMPUTE,
-//                            RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
-//                            RunnableReader.OPERATION_REPORT_LABEL_NONE
-
-// Query
-//                            RunnableReader.OPERATION_TYPE_QUERY,
-//                            RunnableReader.QF_COUNTRY,
-//                            RunnableReader.OPERATION_REPORT_LABEL_SALES
-
-//                            RunnableReader.OPERATION_TYPE_QUERY,
-//                            RunnableReader.QF_COUNTRY,
-//                            RunnableReader.OPERATION_REPORT_LABEL_VAT
-
-//                            RunnableReader.OPERATION_TYPE_QUERY,
-//                            RunnableReader.QF_COUNTRY_SEGMENT,
-//                            RunnableReader.OPERATION_REPORT_LABEL_SALES
-
-//                            RunnableReader.OPERATION_TYPE_QUERY,
-//                            RunnableReader.QF_COUNTRY_SEGMENT,
-//                            RunnableReader.OPERATION_REPORT_LABEL_VAT
-
-                            RunnableReader.OPERATION_TYPE_QUERY,
-                            RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
-                            RunnableReader.OPERATION_REPORT_LABEL_SALES
-
-//                            RunnableReader.OPERATION_TYPE_QUERY,
-//                            RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
-//                            RunnableReader.OPERATION_REPORT_LABEL_VAT
+                            product
                     );
             R1.start();
             readers.add(R1);
@@ -164,13 +146,143 @@ public class UDFExampleReporting {
         if ( AuthMode.valueOf(auth) != null )
             authmode = AuthMode.valueOf(auth);
         timeForJobMs = Long.parseLong(defaultProps.getProperty("timeForJobMs"));
+        delayBetweenJobMs = Long.parseLong(defaultProps.getProperty("delayBetweenJobMs"));
     }
-
     private static Host[] getHosts(String [] listOfIps) {
         Host[] tmpHost = new Host[listOfIps.length];
         for (int i = 0; i < listOfIps.length; i++) {
             tmpHost[i] =  new Host(listOfIps[i], port);
         }
         return tmpHost;
+    }
+}
+
+/*
+        // Compute
+        RunnableReader.OPERATION_TYPE_COMPUTE,
+        RunnableReader.QF_COUNTRY,
+        RunnableReader.OPERATION_REPORT_LABEL_NONE
+
+        RunnableReader.OPERATION_TYPE_COMPUTE,
+        RunnableReader.QF_COUNTRY_SEGMENT,
+        RunnableReader.OPERATION_REPORT_LABEL_NONE
+
+        RunnableReader.OPERATION_TYPE_COMPUTE,
+        RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
+        RunnableReader.OPERATION_REPORT_LABEL_NONE
+
+        // Query
+        RunnableReader.OPERATION_TYPE_QUERY,
+        RunnableReader.QF_COUNTRY,
+        RunnableReader.OPERATION_REPORT_LABEL_SALES
+
+        RunnableReader.OPERATION_TYPE_QUERY,
+        RunnableReader.QF_COUNTRY,
+        RunnableReader.OPERATION_REPORT_LABEL_VAT
+
+        RunnableReader.OPERATION_TYPE_QUERY,
+        RunnableReader.QF_COUNTRY_SEGMENT,
+        RunnableReader.OPERATION_REPORT_LABEL_SALES
+
+        RunnableReader.OPERATION_TYPE_QUERY,
+        RunnableReader.QF_COUNTRY_SEGMENT,
+        RunnableReader.OPERATION_REPORT_LABEL_VAT
+
+        RunnableReader.OPERATION_TYPE_QUERY,
+        RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
+        RunnableReader.OPERATION_REPORT_LABEL_SALES
+
+        RunnableReader.OPERATION_TYPE_QUERY,
+        RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
+        RunnableReader.OPERATION_REPORT_LABEL_VAT
+     */
+class OperationJob
+{
+    int operation;
+    String queryType;
+    int reportLabel;
+    long delayBetweenJobMs;
+
+    public int getOperation() {
+        return operation;
+    }
+
+    public String getQueryType() {
+        return queryType;
+    }
+
+    public int getReportLabel() {
+        return reportLabel;
+    }
+
+    public long getDelayBetweenJobMs() {
+        return delayBetweenJobMs;
+    }
+
+    public OperationJob(int operation, String queryType, int reportType, long delayBetweenJobMs)
+    {
+        this.operation = operation;
+        this.queryType = queryType;
+        this.reportLabel = reportType;
+        this.delayBetweenJobMs = delayBetweenJobMs;
+    }
+}
+
+class AerospikeConnectionDetails{
+    private String name;
+
+    public String getName() {
+        return name;
+    }
+
+    public Monitor getMonitor() {
+        return monitor;
+    }
+
+    public String getNamespace() {
+        return namespace;
+    }
+
+    public String getSet() {
+        return set;
+    }
+
+    public String getLuaConfigSourcePath() {
+        return luaConfigSourcePath;
+    }
+
+    public ClientPolicy getClientPolicy() {
+        return clientPolicy;
+    }
+
+    public Host[] getHosts() {
+        return hosts;
+    }
+
+    private final Monitor monitor;
+    private final String namespace;
+    private final String set;
+    private final String luaConfigSourcePath;
+    private final ClientPolicy clientPolicy;
+    private final Host[] hosts;
+
+    public AerospikeConnectionDetails(
+            String name, Monitor monitor, String namespace,
+            String set, Host[] hosts, String luaConfigSourcePath,
+            ClientPolicy clientPolicy
+    )
+    {
+        this.name = name;
+        this.monitor = monitor;
+        this.namespace = namespace;
+        this.set = set;
+        this.hosts = hosts;
+        this.luaConfigSourcePath  = luaConfigSourcePath;
+        this.clientPolicy = clientPolicy;
+    }
+
+    public String setName(String name) {
+        this.name = name;
+        return name;
     }
 }

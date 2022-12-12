@@ -24,7 +24,8 @@ class RunnableReader implements Runnable {
     private String product;
     private int    operation;
     private String queryField;
-    private int    reportlabel;
+    private int    reportLabel;
+    private long   delayBetweenJobMs;
 
     public final static String QF_COUNTRY_SEGMENT_PRODUCT = "CSP";
     public final static String QF_COUNTRY_SEGMENT = "CS";
@@ -44,24 +45,21 @@ class RunnableReader implements Runnable {
 
     private boolean running = true;
 
-    RunnableReader(String name, Monitor monitor, String namespace,
-                   String set, Host[] hosts, String luaConfigSourcePath,
-                   ClientPolicy clientPolicy, String country, String segment,
-                   String product, int operationType, String queryField,
-                   int reportLabel) {
-        this.namespace = namespace;
-        this.set = set;
-        this.threadName = name;
-        this.monitor = monitor;
-        this.client = new AerospikeClient(clientPolicy, hosts );
-        this.luaConfigSourcePath = luaConfigSourcePath;
+    RunnableReader(AerospikeConnectionDetails details, OperationJob job,
+                   String country, String segment,String product) {
+        this.namespace = details.getNamespace();
+        this.set = details.getSet();
+        this.threadName = details.getName();
+        this.monitor = details.getMonitor();
+        this.client = new AerospikeClient( details.getClientPolicy(), details.getHosts() );
+        this.luaConfigSourcePath = details.getLuaConfigSourcePath();
         this.country = country;
         this.segment = segment;
         this.product = product;
-        this.operation = operationType;
-        this.queryField = queryField;
-        this.reportlabel = reportLabel;
-
+        this.operation = job.getOperation();
+        this.queryField = job.getQueryType();
+        this.reportLabel = job.getReportLabel();
+        this.delayBetweenJobMs = job.getDelayBetweenJobMs();
     }
 
     /**
@@ -83,7 +81,7 @@ class RunnableReader implements Runnable {
                     populateProfit(country, queryField);
                     break;
                 case OPERATION_TYPE_QUERY:
-                    switch (reportlabel) {
+                    switch (reportLabel) {
                         case OPERATION_REPORT_LABEL_SALES:
                             query( country, queryField, OPERATION_REPORT_LABEL_SALES );
                             break;
@@ -94,7 +92,7 @@ class RunnableReader implements Runnable {
                     break;
             }
             try {
-                Thread.sleep(1000L);
+                Thread.sleep(delayBetweenJobMs);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -110,7 +108,7 @@ class RunnableReader implements Runnable {
 
     private void query(String country, String queryField, int reportLabel ){
         String packageName = null; String functionName = null; String label = null;
-        switch(reportlabel){
+        switch(this.reportLabel){
             case OPERATION_REPORT_LABEL_SALES:
                 packageName = "example";
                 functionName = "calculateSales";
