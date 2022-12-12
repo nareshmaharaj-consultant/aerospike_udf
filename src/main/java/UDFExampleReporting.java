@@ -7,11 +7,16 @@ import com.aerospike.client.policy.ClientPolicy;
 import com.aerospike.client.task.RegisterTask;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Properties;
+import java.util.Vector;
+
+import static java.lang.Thread.sleep;
 
 public class UDFExampleReporting {
 
     static int numberOfClientsReaders   = 10;
+    static long timeForJobMs             = 1000L;
     static int port                     = 3000;
     static Monitor monitor              = new Monitor();
     static Host[] hosts                 = new Host[] {new Host("127.0.0.1", port)};
@@ -39,9 +44,8 @@ public class UDFExampleReporting {
         this.client= client;
     }
 
-    public static void main( String args [])
-    {
-        if ( args.length < 2 ){
+    public static void main( String args []) throws InterruptedException {
+        if ( args.length < 1 ){
             System.out.println( "" +
                     "Enter: Country, Segment and Product\n" +
                     "e.g.: France Retail \"Connect for JMS\"");
@@ -61,6 +65,7 @@ public class UDFExampleReporting {
         }
 
         udfReader.registerLua();
+        Vector<RunnableReader> readers = new Vector<>();
 
         /* [ Start client threads - reading data ] */
         for (int i = 0; i < numberOfClientsReaders; i++ )
@@ -76,10 +81,56 @@ public class UDFExampleReporting {
                             clientPolicy,
                             country,
                             segment,
-                            product
+                            product,
+
+// Compute
+
+//                            RunnableReader.OPERATION_TYPE_COMPUTE,
+//                            RunnableReader.QF_COUNTRY,
+//                            RunnableReader.OPERATION_REPORT_LABEL_NONE
+
+//                            RunnableReader.OPERATION_TYPE_COMPUTE,
+//                            RunnableReader.QF_COUNTRY_SEGMENT,
+//                            RunnableReader.OPERATION_REPORT_LABEL_NONE
+
+//                            RunnableReader.OPERATION_TYPE_COMPUTE,
+//                            RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
+//                            RunnableReader.OPERATION_REPORT_LABEL_NONE
+
+// Query
+                            RunnableReader.OPERATION_TYPE_QUERY,
+                            RunnableReader.QF_COUNTRY,
+                            RunnableReader.OPERATION_REPORT_LABEL_SALES
+
+//                            RunnableReader.OPERATION_TYPE_QUERY,
+//                            RunnableReader.QF_COUNTRY,
+//                            RunnableReader.OPERATION_REPORT_LABEL_VAT
+
+//                            RunnableReader.OPERATION_TYPE_QUERY,
+//                            RunnableReader.QF_COUNTRY_SEGMENT,
+//                            RunnableReader.OPERATION_REPORT_LABEL_SALES
+
+//                            RunnableReader.OPERATION_TYPE_QUERY,
+//                            RunnableReader.QF_COUNTRY_SEGMENT,
+//                            RunnableReader.OPERATION_REPORT_LABEL_VAT
+
+//                            RunnableReader.OPERATION_TYPE_QUERY,
+//                            RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
+//                            RunnableReader.OPERATION_REPORT_LABEL_SALES
+
+//                            RunnableReader.OPERATION_TYPE_QUERY,
+//                            RunnableReader.QF_COUNTRY_SEGMENT_PRODUCT,
+//                            RunnableReader.OPERATION_REPORT_LABEL_VAT
                     );
             R1.start();
+            readers.add(R1);
         }
+        sleep(timeForJobMs);
+        Iterator<RunnableReader> itr = readers.iterator();
+
+        while( itr.hasNext() )
+            itr.next().setRunning(false);
+
         monitor.waitTillComplete();
     }
 
@@ -112,6 +163,7 @@ public class UDFExampleReporting {
         String auth = defaultProps.getProperty("authMode");
         if ( AuthMode.valueOf(auth) != null )
             authmode = AuthMode.valueOf(auth);
+        timeForJobMs = Long.parseLong(defaultProps.getProperty("timeForJobMs"));
     }
 
     private static Host[] getHosts(String [] listOfIps) {

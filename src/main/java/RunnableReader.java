@@ -9,9 +9,7 @@ import com.aerospike.client.policy.RecordExistsAction;
 import com.aerospike.client.policy.WritePolicy;
 import com.aerospike.client.query.*;
 import com.aerospike.client.task.ExecuteTask;
-
 import java.util.Iterator;
-import java.util.Locale;
 
 class RunnableReader implements Runnable {
     private final String namespace;
@@ -24,15 +22,33 @@ class RunnableReader implements Runnable {
     private String country;
     private String segment;
     private String product;
+    private int    operation;
+    private String queryField;
+    private int    reportlabel;
 
-    private final String QF_COUNTRY_SEGMENT_PRODUCT = "CSP";
-    private final String QF_COUNTRY_SEGMENT = "CS";
-    private final String QF_COUNTRY = "C";
-    private final String QF_BIN_NAME = "queryField";
+    public final static String QF_COUNTRY_SEGMENT_PRODUCT = "CSP";
+    public final static String QF_COUNTRY_SEGMENT = "CS";
+    public final static String QF_COUNTRY = "C";
+    public final static String QF_BIN_NAME = "queryField";
+
+    public final static int OPERATION_TYPE_QUERY = 1;
+    public final static int OPERATION_TYPE_COMPUTE = 2;
+
+    public final static int OPERATION_REPORT_LABEL_NONE=0;
+    public final static int OPERATION_REPORT_LABEL_SALES=1;
+    public final static int OPERATION_REPORT_LABEL_VAT=2;
+
+    public void setRunning(boolean running) {
+        this.running = running;
+    }
+
+    private boolean running = true;
 
     RunnableReader(String name, Monitor monitor, String namespace,
                    String set, Host[] hosts, String luaConfigSourcePath,
-                   ClientPolicy clientPolicy, String country, String segment, String product){
+                   ClientPolicy clientPolicy, String country, String segment,
+                   String product, int operationType, String queryField,
+                   int reportLabel) {
         this.namespace = namespace;
         this.set = set;
         this.threadName = name;
@@ -42,6 +58,10 @@ class RunnableReader implements Runnable {
         this.country = country;
         this.segment = segment;
         this.product = product;
+        this.operation = operationType;
+        this.queryField = queryField;
+        this.reportlabel = reportLabel;
+
     }
 
     /**
@@ -57,30 +77,28 @@ class RunnableReader implements Runnable {
     @Override
     public void run()
     {
-        /* Calculate profit & store for country, segment and product */
-        populateProfit(country, QF_COUNTRY_SEGMENT_PRODUCT);
-
-        /* Get VAT due for country, segment and product */
-        query(country, QF_COUNTRY_SEGMENT_PRODUCT, "example", "calculateVatDue", "VAT");
-
-        /* Calculate profit & store for country, segment */
-        populateProfit(country, QF_COUNTRY_SEGMENT);
-
-        /* Get total Sales for country, segment */
-        query(country, QF_COUNTRY_SEGMENT, "example", "calculateSales", "SALES");
-
-        /* Get VAT for country, segment */
-        query(country, QF_COUNTRY_SEGMENT, "example", "calculateVatDue", "VAT");
-
-        /* Calculate profit & store for country */
-        populateProfit(country, QF_COUNTRY);
-
-        /* Get VAT for country */
-        query(country, QF_COUNTRY, "example", "calculateVatDue", "VAT");
-
-        /* Get total Sales for country */
-        query(country, QF_COUNTRY, "example", "calculateSales", "SALES");
-
+        while (running){
+            switch( operation ){
+                case OPERATION_TYPE_COMPUTE:
+                    populateProfit(country, queryField);
+                    break;
+                case OPERATION_TYPE_QUERY:
+                    switch (reportlabel) {
+                        case OPERATION_REPORT_LABEL_SALES:
+                            query( country, queryField, OPERATION_REPORT_LABEL_SALES );
+                            break;
+                        case OPERATION_REPORT_LABEL_VAT:
+                            query( country, queryField, OPERATION_REPORT_LABEL_VAT );
+                            break;
+                    }
+                    break;
+            }
+            try {
+                Thread.sleep(1000L);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
         client.close();
         monitor.notifyComplete();
     }
@@ -90,7 +108,21 @@ class RunnableReader implements Runnable {
         System.out.println( "Compute Profit bins for " + queryField + " in " + ( timeTakenCSP ) + " ms.");
     }
 
-    private void query(String country, String queryField, String packageName, String functionName, String label){
+    private void query(String country, String queryField, int reportLabel ){
+        String packageName = null; String functionName = null; String label = null;
+        switch(reportlabel){
+            case OPERATION_REPORT_LABEL_SALES:
+                packageName = "example";
+                functionName = "calculateSales";
+                label = "SALES";
+                break;
+            case OPERATION_REPORT_LABEL_VAT:
+                packageName = "example";
+                functionName = "calculateVatDue";
+                label = "VAT";
+                break;
+        }
+
         Object [] result = getAggregationReport( country, queryField, packageName,functionName );
         if ( result != null ) {
             System.out.println(
@@ -105,8 +137,6 @@ class RunnableReader implements Runnable {
 
     private long calculateProfit(String country, String queryField) {
 
-        /* Calculate profit & store for country, segment and product */
-        String queryFieldValue = getQueryTypeValue(country, queryField);
         Exp exp = getQueryTypeExp(queryField);
 
         long startTime = System.currentTimeMillis();
@@ -127,9 +157,7 @@ class RunnableReader implements Runnable {
                 "totals",
                 Value.get("unitsSold"),
                 Value.get("mfgPrice"),
-                Value.get("salesPrice"),
-                Value.get( queryFieldValue ),
-                Value.get( QF_BIN_NAME )
+                Value.get("salesPrice")
         );
         et.waitTillComplete();
         long endTime = System.currentTimeMillis();
@@ -148,8 +176,8 @@ class RunnableReader implements Runnable {
      */
     private Object[] getAggregationReport(String country, String queryField, String packageName, String functionName ) {
 
-        String queryFieldValue = getQueryTypeValue(country, queryField);
-        Filter f = Filter.contains(QF_BIN_NAME, IndexCollectionType.MAPKEYS, queryFieldValue);
+        String queryFieldMapValue = getQueryFieldMapValue(queryField);
+        Filter f = Filter.contains(QF_BIN_NAME, IndexCollectionType.MAPVALUES, queryFieldMapValue);
 
         long startTime = System.currentTimeMillis();
         LuaConfig.SourceDirectory = luaConfigSourcePath;
@@ -189,16 +217,13 @@ class RunnableReader implements Runnable {
         return null;
     }
 
-    public String getQueryTypeValue(String country, String queryType){
-        return convertCountryNameToIsoCode(country).concat("/").concat(queryType);
-    }
-
-    public static String convertCountryNameToIsoCode(String countryName) {
-        for (Locale l : Locale.getAvailableLocales()) {
-            if (l.getDisplayCountry().equals(countryName)) {
-                return l.getISO3Country();
-            }
-        }
+    public String getQueryFieldMapValue(String queryType){
+        if ( queryType.equalsIgnoreCase(QF_COUNTRY_SEGMENT_PRODUCT) )
+            return  country.concat("/").concat(segment).concat("/").concat(product);
+        else if (queryType.equalsIgnoreCase(QF_COUNTRY_SEGMENT) )
+            return  country.concat("/").concat(segment);
+        else if (queryType.equalsIgnoreCase(QF_COUNTRY) )
+            return country;
         return null;
     }
 

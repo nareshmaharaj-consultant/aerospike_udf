@@ -49,7 +49,8 @@ public class UDFExampleDataLoader {
         deleteIndex(namespace, set, "queryField");
         createIndex(namespace, set, "country", IndexType.STRING );
         createIndex(namespace, set, "totalSales", IndexType.NUMERIC );
-        createIndexList(namespace, set, "queryField", IndexType.STRING, IndexCollectionType.MAPKEYS );
+        createIndexList("queryFieldKeys",namespace, set, "queryField", IndexType.STRING, IndexCollectionType.MAPKEYS );
+        createIndexList("queryFieldVals", namespace, set, "queryField", IndexType.STRING, IndexCollectionType.MAPVALUES );
 
         if ( truncateBeforeStarting )
             client.truncate(null, namespace, set, null);
@@ -178,8 +179,8 @@ public class UDFExampleDataLoader {
         task.waitTillComplete();
     }
 
-    public void createIndexList(String ns, String set, String bin, IndexType type, IndexCollectionType ict ) throws Exception {
-        IndexTask task = client.createIndex(null, ns, set,  bin.concat("_idx"), bin, type, ict);
+    public void createIndexList(String name, String ns, String set, String bin, IndexType type, IndexCollectionType ict ) throws Exception {
+        IndexTask task = client.createIndex(null, ns, set,  name, bin, type, ict);
         task.waitTillComplete();
     }
 
