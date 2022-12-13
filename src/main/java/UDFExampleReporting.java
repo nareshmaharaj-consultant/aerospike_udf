@@ -36,6 +36,7 @@ public class UDFExampleReporting {
     static boolean showReportNoResults = false;
     static boolean showReportResults = false;
     static boolean showJob = false;
+    static boolean useUDFFilterLogic = false;
 
     static AerospikeClient client;
     static String namespace             = "test";
@@ -127,8 +128,9 @@ public class UDFExampleReporting {
 
             aerospikeConnectionDetails.setName("Aerospike Connection: ".concat(Integer.toString(i)));
 
-            RunnableReader R1 =
+            RunnableReader R1 = useUDFFilterLogic ? new RunnableReaderFilter( aerospikeConnectionDetails, operationJobQueryCS ) :
                     new RunnableReader( aerospikeConnectionDetails, operationJobQueryCS );
+
             if ( staggerJobs)
                 sleep( new Random().nextInt(staggerMaxPeriod) );
             R1.start();
@@ -232,6 +234,7 @@ public class UDFExampleReporting {
         showReportNoResults = Boolean.parseBoolean(defaultProps.getProperty("showReportNoResults"));
         showReportResults = Boolean.parseBoolean(defaultProps.getProperty("showReportResults"));
         showJob = Boolean.parseBoolean(defaultProps.getProperty("showJob"));
+        useUDFFilterLogic = Boolean.parseBoolean(defaultProps.getProperty("useUDFFilterLogic"));
     }
     private static Host[] getHosts(String [] listOfIps) {
         Host[] tmpHost = new Host[listOfIps.length];

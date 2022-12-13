@@ -51,16 +51,6 @@ function totals(rec, unitsSold, mfgPrice, salesPrice)
     end
     rec["taxDue"] = vatDue
 
-    --queryFieldValue required as we cant use Exp with queryAggregate for fine grained filter.
-    --if rec[queryFieldBinName] == nil then
-    --    local m = map()
-    --    m[queryFieldMapKey]= queryFieldMapValue
-    --    rec[queryFieldBinName] = m
-    --else
-    --    local m = rec[queryFieldBinName]
-    --    m[queryFieldMapKey] = queryFieldMapValue
-    --    rec[queryFieldBinName] = m
-    --end
     return aerospike:update(rec)
 end
 
@@ -105,12 +95,64 @@ local function aggregate_vatDue(out, rec)
     return out
 end
 
+-- FILTERS --
+local function countrySegmentProductFilterClosure(country_arg, segment_arg, product_arg)
+    local function countrySegmentProductFilter(rec)
+       local country_rec = rec["country"]
+       local segment_rec = rec["segment"]
+       local product_rec = rec["product"]
+
+        --if (not country_arg or type(country_arg) ~= "string") then country_arg = nil end
+        if (not segment_arg or type(segment_arg) ~= "string") then segment_arg = nil end
+        if (not product_arg or type(product_arg) ~= "string") then product_arg = nil end
+
+        local retVal = false
+
+        if (country_arg and country_arg == country_rec) then
+            retVal = true
+        else
+            return false
+        end
+
+        if segment_arg ~= nil then
+            if (segment_arg and segment_arg == segment_rec) then
+                retVal = true
+            else
+                return false
+            end
+        end
+
+        if product_arg ~= nil then
+            if (product_arg and product_arg == product_rec) then
+                retVal = true
+            else
+                return false
+            end
+        end
+
+        return retVal
+    end
+    return countrySegmentProductFilter
+end
+
+-- STREAMS FUNCTIONS FOR AGGREGATION (Non Filter) --
 function calculateSales(stream)
     return stream:aggregate( map{ country = nil }, aggregate_sales ): reduce(reduce_stream)
 end
 
 function calculateVatDue(stream)
     return stream: aggregate( map{ country = nil }, aggregate_vatDue): reduce(reduce_stream)
+end
+
+-- STREAMS FUNCTIONS FOR AGGREGATION (Filter) --
+function calculateVatDueFilter(stream, country, segment, product)
+    return stream:filter(countrySegmentProductFilterClosure(country, segment, product))
+            :aggregate( map{ country = nil }, aggregate_vatDue):reduce(reduce_stream)
+end
+
+function calculateSalesFilter(stream, country, segment, product)
+    return stream:filter(countrySegmentProductFilterClosure(country, segment, product))
+            :aggregate( map{ country = nil }, aggregate_sales ): reduce(reduce_stream)
 end
 
 function round(num, numDecimalPlaces)

@@ -13,16 +13,16 @@ import java.util.HashMap;
 import java.util.Iterator;
 
 class RunnableReader implements Runnable {
-    private final String namespace;
-    private final String set;
+    protected final String namespace;
+    protected final String set;
     private Thread t;
     private String threadName;
     AerospikeClient client;
     Monitor monitor;
-    private String luaConfigSourcePath  = ".";
-    private String country;
-    private String segment;
-    private String product;
+    protected String luaConfigSourcePath  = ".";
+    protected String country;
+    protected String segment;
+    protected String product;
     private int    operation;
     private String queryField;
     private int    reportLabel;
@@ -88,10 +88,10 @@ class RunnableReader implements Runnable {
                 case OPERATION_TYPE_QUERY:
                     switch (reportLabel) {
                         case OPERATION_REPORT_LABEL_SALES:
-                            query( country, queryField, OPERATION_REPORT_LABEL_SALES );
+                            query( queryField, OPERATION_REPORT_LABEL_SALES );
                             break;
                         case OPERATION_REPORT_LABEL_VAT:
-                            query( country, queryField, OPERATION_REPORT_LABEL_VAT );
+                            query( queryField, OPERATION_REPORT_LABEL_VAT );
                             break;
                     }
                     break;
@@ -114,7 +114,7 @@ class RunnableReader implements Runnable {
                 + additionalQueryFieldInfo(queryField) + " in " + ( timeTakenCSP ) + " ms.");
     }
 
-    private String additionalQueryFieldInfo(String queryField) {
+    protected String additionalQueryFieldInfo(String queryField) {
         String additionalInfo = "";
         if ( queryField.equalsIgnoreCase(QF_COUNTRY) ) additionalInfo += country;
         else if (queryField.equalsIgnoreCase(QF_COUNTRY_SEGMENT)) additionalInfo += country.concat("/").concat(segment);
@@ -122,9 +122,9 @@ class RunnableReader implements Runnable {
         return "[" + queryField + "] "  + additionalInfo;
     }
 
-    private void query(String country, String queryField, int reportLabel ){
+    protected void query( String queryField, int reportLabel ){
         String packageName = null; String functionName = null; String label = null;
-        switch(this.reportLabel){
+        switch(reportLabel){
             case OPERATION_REPORT_LABEL_SALES:
                 packageName = "example";
                 functionName = "calculateSales";
@@ -137,7 +137,7 @@ class RunnableReader implements Runnable {
                 break;
         }
 
-        Object [] result = getAggregationReport( country, queryField, packageName,functionName );
+        Object [] result = getAggregationReport( queryField, packageName, functionName );
         if ( result != null ) {
 
             if ( job.isShowReportResults() ) {
@@ -199,11 +199,10 @@ class RunnableReader implements Runnable {
      * QueryPolicy qPolicy = new QueryPolicy();
      * qPolicy.filterExp = Exp.build(expFilter);
      *
-     * @param country
      * @param queryField
      * @return
      */
-    private Object[] getAggregationReport(String country, String queryField, String packageName, String functionName ) {
+    protected Object[] getAggregationReport( String queryField, String packageName, String functionName ) {
         String queryFieldMapValue = getQueryFieldMapValue(queryField);
         Filter f = Filter.contains(QF_BIN_NAME, IndexCollectionType.MAPVALUES, queryFieldMapValue);
 
