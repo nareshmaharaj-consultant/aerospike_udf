@@ -5,7 +5,6 @@ import com.aerospike.client.Value;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Random;
-import java.util.stream.IntStream;
 
 class SalesData {
 
