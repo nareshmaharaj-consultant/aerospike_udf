@@ -28,6 +28,8 @@ class RunnableReader implements Runnable {
     private int    reportLabel;
     private long   delayBetweenJobMs;
 
+    OperationJob job;
+
     public final static String QF_COUNTRY_SEGMENT_PRODUCT = "CSP";
     public final static String QF_COUNTRY_SEGMENT = "CS";
     public final static String QF_COUNTRY = "C";
@@ -62,6 +64,7 @@ class RunnableReader implements Runnable {
         this.queryField = job.getQueryType();
         this.reportLabel = job.getReportLabel();
         this.delayBetweenJobMs = job.getDelayBetweenJobMs();
+        this.job = job;
     }
 
     /**
@@ -105,7 +108,9 @@ class RunnableReader implements Runnable {
 
     private void populateProfit(String country, String queryField) {
         long timeTakenCSP = calculateProfit( country, queryField );
-        System.out.println( "Compute Profit bins for "
+
+        if ( job.isShowCompute() )
+            System.out.println( "Compute Profit bins for "
                 + additionalQueryFieldInfo(queryField) + " in " + ( timeTakenCSP ) + " ms.");
     }
 
@@ -134,27 +139,28 @@ class RunnableReader implements Runnable {
 
         Object [] result = getAggregationReport( country, queryField, packageName,functionName );
         if ( result != null ) {
-            HashMap map = (HashMap)result[0];
 
-            double reportValueDouble = 0;
-            double reportValueLong = 0;
-            if ( map.get(country) instanceof Long )
-//                System.out.println( "map.get(country) instanceof Long" );
-                reportValueLong = (long) map.get(country);
-            else if ( map.get(country) instanceof Double  )
-//                System.out.println( "map.get(country) instanceof Double" );
-                reportValueDouble = (double) map.get(country);
-//            double d = l.doubleValue();
-//            double reportValue = (double) map.get(country);
-            String amount = formatter.format( reportValueDouble > 0 ? reportValueDouble:reportValueLong);
-            System.out.println(
-                    "Total " + label + " for " + additionalQueryFieldInfo(queryField) + ", "
-//                            + (amount == null ? "null" : result[0]) + " in "
-                            + (amount == null ? "null" : amount) + " in "
-                            + (result[1] == null ? "null" : result[1]) + " ms.");
+            if ( job.isShowReportResults() ) {
+                HashMap map = (HashMap) result[0];
+
+                double reportValueDouble = 0;
+                double reportValueLong = 0;
+
+                if (map.get(country) instanceof Long)
+                    reportValueLong = (long) map.get(country);
+                else if (map.get(country) instanceof Double)
+                    reportValueDouble = (double) map.get(country);
+
+                String amount = formatter.format(reportValueDouble > 0 ? reportValueDouble : reportValueLong);
+                System.out.println(
+                        "Total " + label + " for " + additionalQueryFieldInfo(queryField) + ", "
+                                + (amount == null ? "null" : amount) + " in "
+                                + (result[1] == null ? "null" : result[1]) + " ms.");
+            }
         }
         else {
-            System.out.println("No results for " + additionalQueryFieldInfo(queryField));
+            if ( job.isShowReportNoResults() )
+                System.out.println("No results for " + additionalQueryFieldInfo(queryField));
         }
     }
 
@@ -250,7 +256,6 @@ class RunnableReader implements Runnable {
     }
 
     public void start () {
-        // System.out.println("Starting " +  threadName );
         if (t == null) {
             t = new Thread (this, threadName);
             t.start ();

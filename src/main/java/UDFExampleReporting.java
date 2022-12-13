@@ -32,6 +32,10 @@ public class UDFExampleReporting {
     static boolean runAsDemo = false;
     static boolean staggerJobs = false;
     static int staggerMaxPeriod = 1000;
+    static boolean showCompute = false;
+    static boolean showReportNoResults = false;
+    static boolean showReportResults = false;
+    static boolean showJob = false;
 
     static AerospikeClient client;
     static String namespace             = "test";
@@ -117,7 +121,12 @@ public class UDFExampleReporting {
                 OperationJob operationJobDemo = getOperationJobDemo();
                 operationJobQueryCS = operationJobDemo;
             }
+            operationJobQueryCS.setShowCompute(showCompute);
+            operationJobQueryCS.setShowReportNoResults(showReportNoResults);
+            operationJobQueryCS.setShowReportResults(showReportResults);
+
             aerospikeConnectionDetails.setName("Aerospike Connection: ".concat(Integer.toString(i)));
+
             RunnableReader R1 =
                     new RunnableReader( aerospikeConnectionDetails, operationJobQueryCS );
             if ( staggerJobs)
@@ -172,7 +181,8 @@ public class UDFExampleReporting {
         OperationJob job = new OperationJob(jobType, operationQueryFilter, jobReportLabel, delayBetweenJobMs,
                 queryFilterCountry, queryFilterSegment, queryFilterProduct );
 
-        System.out.println( job );
+        if ( showJob )
+            System.out.println( job );
         return job;
     }
 
@@ -218,6 +228,10 @@ public class UDFExampleReporting {
         demoJobsCountryList = defaultProps.getProperty("demoJobsCountryList");
         staggerJobs = Boolean.parseBoolean(defaultProps.getProperty("staggerJobs"));
         staggerMaxPeriod = Integer.parseInt(defaultProps.getProperty("staggerMaxPeriod"));
+        showCompute = Boolean.parseBoolean(defaultProps.getProperty("showCompute"));
+        showReportNoResults = Boolean.parseBoolean(defaultProps.getProperty("showReportNoResults"));
+        showReportResults = Boolean.parseBoolean(defaultProps.getProperty("showReportResults"));
+        showJob = Boolean.parseBoolean(defaultProps.getProperty("showJob"));
     }
     private static Host[] getHosts(String [] listOfIps) {
         Host[] tmpHost = new Host[listOfIps.length];
@@ -238,6 +252,34 @@ class OperationJob {
     String country;
     String segment;
     String product;
+
+    boolean showCompute = false;
+    boolean showReportNoResults = false;
+    boolean showReportResults = true;
+
+    public boolean isShowCompute() {
+        return showCompute;
+    }
+
+    public void setShowCompute(boolean showCompute) {
+        this.showCompute = showCompute;
+    }
+
+    public boolean isShowReportNoResults() {
+        return showReportNoResults;
+    }
+
+    public void setShowReportNoResults(boolean showReportNoResults) {
+        this.showReportNoResults = showReportNoResults;
+    }
+
+    public boolean isShowReportResults() {
+        return showReportResults;
+    }
+
+    public void setShowReportResults(boolean showReportResults) {
+        this.showReportResults = showReportResults;
+    }
 
     public void setCountry(String country) {
         this.country = country;
