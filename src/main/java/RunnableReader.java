@@ -7,6 +7,9 @@ import com.aerospike.client.policy.RecordExistsAction;
 import com.aerospike.client.policy.WritePolicy;
 import com.aerospike.client.query.*;
 import com.aerospike.client.task.ExecuteTask;
+
+import java.text.NumberFormat;
+import java.util.HashMap;
 import java.util.Iterator;
 
 class RunnableReader implements Runnable {
@@ -36,6 +39,8 @@ class RunnableReader implements Runnable {
     public final static int OPERATION_REPORT_LABEL_NONE=0;
     public final static int OPERATION_REPORT_LABEL_SALES=1;
     public final static int OPERATION_REPORT_LABEL_VAT=2;
+
+    NumberFormat formatter = NumberFormat.getCurrencyInstance();
 
     public void setRunning(boolean running) {
         this.running = running;
@@ -129,9 +134,23 @@ class RunnableReader implements Runnable {
 
         Object [] result = getAggregationReport( country, queryField, packageName,functionName );
         if ( result != null ) {
+            HashMap map = (HashMap)result[0];
+
+            double reportValueDouble = 0;
+            double reportValueLong = 0;
+            if ( map.get(country) instanceof Long )
+//                System.out.println( "map.get(country) instanceof Long" );
+                reportValueLong = (long) map.get(country);
+            else if ( map.get(country) instanceof Double  )
+//                System.out.println( "map.get(country) instanceof Double" );
+                reportValueDouble = (double) map.get(country);
+//            double d = l.doubleValue();
+//            double reportValue = (double) map.get(country);
+            String amount = formatter.format( reportValueDouble > 0 ? reportValueDouble:reportValueLong);
             System.out.println(
                     "Total " + label + " for " + additionalQueryFieldInfo(queryField) + ", "
-                            + (result[0] == null ? "null" : result[0]) + " in "
+//                            + (amount == null ? "null" : result[0]) + " in "
+                            + (amount == null ? "null" : amount) + " in "
                             + (result[1] == null ? "null" : result[1]) + " ms.");
         }
         else {

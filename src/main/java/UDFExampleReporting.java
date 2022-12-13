@@ -30,6 +30,8 @@ public class UDFExampleReporting {
 
     static String demoJobsCountryList;
     static boolean runAsDemo = false;
+    static boolean staggerJobs = false;
+    static int staggerMaxPeriod = 1000;
 
     static AerospikeClient client;
     static String namespace             = "test";
@@ -118,6 +120,8 @@ public class UDFExampleReporting {
             aerospikeConnectionDetails.setName("Aerospike Connection: ".concat(Integer.toString(i)));
             RunnableReader R1 =
                     new RunnableReader( aerospikeConnectionDetails, operationJobQueryCS );
+            if ( staggerJobs)
+                sleep( new Random().nextInt(staggerMaxPeriod) );
             R1.start();
             readers.add(R1);
         }
@@ -212,6 +216,8 @@ public class UDFExampleReporting {
         product = defaultProps.getProperty("queryFilterProduct");
         runAsDemo = Boolean.parseBoolean( defaultProps.getProperty("demoJobs") );
         demoJobsCountryList = defaultProps.getProperty("demoJobsCountryList");
+        staggerJobs = Boolean.parseBoolean(defaultProps.getProperty("staggerJobs"));
+        staggerMaxPeriod = Integer.parseInt(defaultProps.getProperty("staggerMaxPeriod"));
     }
     private static Host[] getHosts(String [] listOfIps) {
         Host[] tmpHost = new Host[listOfIps.length];
