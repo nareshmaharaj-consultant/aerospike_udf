@@ -50,9 +50,20 @@ class SalesData {
 //        return operations;
 //    }
 
-    String [] segments  = {"Government", "Retail", "Health", "Sport", "Education", "Midmarket", "Channel Partners", "Enterprise", "Small Business", };
-    String [] locales   = Locale.getISOCountries();
-    String [] products  = {"Aerospike Real-time Data Platform","Aerospike Database","Aerospike SQL","Document Database","Features and Editions","Aerospike Tools","Kubernetes Operator","Aerospike Monitoring","Cloud","Aerospike Cloud","Aerospike on AWS","Aerospike Cloud Managed Service","Connect","Connect for Spark","Connect for Kafka","Connect for JMS","Connect for Pulsar","Connect for Presto","Connect for ESP","Technology","Real-Time Engine","Hybrid Memory Architecture","Cross Datacenter Replication","Dynamic Cluster Management","Smart Client™","Strong Consistency"};
+    public static String [] segments  = {"Government", "Retail", "Health", "Sport", "Education", "Midmarket", "Channel Partners", "Enterprise", "Small Business", };
+    public static String [] locales   = Locale.getISOCountries();
+    public static String [] products  = {"Aerospike Real-time Data Platform","Aerospike Database","Aerospike SQL","Document Database","Features and Editions","Aerospike Tools","Kubernetes Operator","Aerospike Monitoring","Cloud","Aerospike Cloud","Aerospike on AWS","Aerospike Cloud Managed Service","Connect","Connect for Spark","Connect for Kafka","Connect for JMS","Connect for Pulsar","Connect for Presto","Connect for ESP","Technology","Real-Time Engine","Hybrid Memory Architecture","Cross Datacenter Replication","Dynamic Cluster Management","Smart Client™","Strong Consistency"};
+
+    public static String getRandomSegment(){
+        return segments[new Random().nextInt( segments.length) ];
+    }
+    public static String getRandomCountry(){
+        Locale obj = new Locale("", locales[ new Random().nextInt( locales.length) ] );
+        return obj.getDisplayCountry();
+    }
+    public static String getRandomProduct(){
+        return products[new Random().nextInt( products.length) ];
+    }
 
     /*
         For aggregation queries pre-populate a map to be used as a filter as Exp are not allowed
@@ -67,14 +78,13 @@ class SalesData {
         HashMap<String, String> queryFields = new HashMap<>();
 
         /*Segment*/
-        Bin segment = new Bin("segment", Value.get( segments[new Random().nextInt( segments.length) ] ) );
+        Bin segment = new Bin("segment", Value.get( getRandomSegment() ) );
 
         /* Country */
-        Locale obj = new Locale("", locales[ new Random().nextInt( locales.length) ] );
-        Bin country = new Bin("country", Value.get( obj.getDisplayCountry() ));
+        Bin country = new Bin("country", Value.get( getRandomCountry() ));
 
         /* Products */
-        Bin product = new Bin("product", Value.get( products[new Random().nextInt( products.length) ] ));
+        Bin product = new Bin("product", Value.get( getRandomProduct() ));
 
         queryFields = getMaps(queryFields, country, segment, product );
         Bin queryField = new Bin("queryField", Value.get( queryFields) );

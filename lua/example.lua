@@ -106,13 +106,11 @@ local function aggregate_vatDue(out, rec)
 end
 
 function calculateSales(stream)
-    return stream                                     :
-    aggregate( map{ country = nil }, aggregate_sales ): reduce(reduce_stream)
+    return stream:aggregate( map{ country = nil }, aggregate_sales ): reduce(reduce_stream)
 end
 
 function calculateVatDue(stream)
-    return stream                                     :
-    aggregate( map{ country = nil }, aggregate_vatDue): reduce(reduce_stream)
+    return stream: aggregate( map{ country = nil }, aggregate_vatDue): reduce(reduce_stream)
 end
 
 function round(num, numDecimalPlaces)

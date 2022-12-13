@@ -2,15 +2,13 @@ import com.aerospike.client.AerospikeClient;
 import com.aerospike.client.Host;
 import com.aerospike.client.Language;
 import com.aerospike.client.async.Monitor;
+import com.aerospike.client.lua.LuaCache;
 import com.aerospike.client.policy.AuthMode;
 import com.aerospike.client.policy.ClientPolicy;
 import com.aerospike.client.task.RegisterTask;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.Locale;
-import java.util.Properties;
-import java.util.Vector;
+import java.util.*;
 
 import static java.lang.Thread.sleep;
 
@@ -30,6 +28,8 @@ public class UDFExampleReporting {
     static String segment;
     static String product;
 
+    static String demoJobsCountryList;
+    static boolean runAsDemo = false;
 
     static AerospikeClient client;
     static String namespace             = "test";
@@ -39,19 +39,23 @@ public class UDFExampleReporting {
     static AuthMode authmode            = AuthMode.INTERNAL;
 
     static UDFExampleReporting udfReader = null;
-    static String luaExamplePath        = "example.lua";
-    static String luaConfigSourcePath   = ".";
-    static ClientPolicy clientPolicy = null;
+    static String luaExamplePath         = "example.lua";
+    static String luaConfigSourcePath    = ".";
+    static ClientPolicy clientPolicy     = null;
 
-    public UDFExampleReporting(){
-        ClientPolicy clientPolicy = new ClientPolicy();
-        clientPolicy.user = user;
-        clientPolicy.password = pwd;
-        clientPolicy.authMode = authmode;
-        this.clientPolicy = clientPolicy;
+    static final String OPERATION_TYPE_COMPUTE="compute";
+    static final String OPERATION_TYPE_QUERY="query";
+    static final String OPERATION_TYPE_QUERY_TAX="tax";
+    static final String OPERATION_REPORT_LABEL_SALES="sales";
 
-        AerospikeClient client = new AerospikeClient(clientPolicy, hosts);
-        this.client= client;
+    public UDFExampleReporting() {
+        ClientPolicy clientPolicy   = new ClientPolicy();
+        clientPolicy.user           = user;
+        clientPolicy.password       = pwd;
+        clientPolicy.authMode       = authmode;
+        this.clientPolicy           = clientPolicy;
+        AerospikeClient client      = new AerospikeClient(clientPolicy, hosts);
+        this.client                 = client;
     }
 
     public static void main( String args []) throws InterruptedException {
@@ -76,15 +80,18 @@ public class UDFExampleReporting {
         /*
             Set up the job
          */
-        int jobType = operationQueryType.equalsIgnoreCase("compute ") ?
+        int jobType = operationQueryType.equalsIgnoreCase(OPERATION_TYPE_COMPUTE) ?
                 RunnableReader.OPERATION_TYPE_COMPUTE: RunnableReader.OPERATION_TYPE_QUERY;
 
-        int jobReportLabel = operationQueryReportLabel.equalsIgnoreCase("sales") ?
+        int jobReportLabel = operationQueryReportLabel.equalsIgnoreCase(OPERATION_REPORT_LABEL_SALES) ?
                 RunnableReader.OPERATION_REPORT_LABEL_SALES:RunnableReader.OPERATION_REPORT_LABEL_VAT;
 
         String jobSelection = operationQueryFilter.toUpperCase(Locale.ROOT);
 
-        OperationJob operationJobQueryCS = new OperationJob(jobType, jobSelection, jobReportLabel, delayBetweenJobMs);
+        OperationJob operationJobQueryCS = new OperationJob(
+                jobType, jobSelection, jobReportLabel, delayBetweenJobMs,
+                country, segment, product
+        );
 
         /*
             Carries for connection details
@@ -104,15 +111,13 @@ public class UDFExampleReporting {
         */
         for (int i = 0; i < numberOfClientsReaders; i++ )
         {
+            if ( runAsDemo ) {
+                OperationJob operationJobDemo = getOperationJobDemo();
+                operationJobQueryCS = operationJobDemo;
+            }
             aerospikeConnectionDetails.setName("Aerospike Connection: ".concat(Integer.toString(i)));
             RunnableReader R1 =
-                    new RunnableReader(
-                            aerospikeConnectionDetails,
-                            operationJobQueryCS,
-                            country,
-                            segment,
-                            product
-                    );
+                    new RunnableReader( aerospikeConnectionDetails, operationJobQueryCS );
             R1.start();
             readers.add(R1);
         }
@@ -125,7 +130,50 @@ public class UDFExampleReporting {
         monitor.waitTillComplete();
     }
 
+    private static OperationJob getOperationJobDemo() {
+
+        int max=2; int min=1;
+        /* decide on query type compute or query */
+        int jobType = new Random().nextInt((max - min) + 1) + min;
+
+        max=2; min=1;
+        /* decide on job label type sales or vat */
+        int jobReportLabel = new Random().nextInt((max - min) + 1) + min;
+
+        max=3; min=1;
+        /* decide on whether to do i.e. 1,2,3 # C=Country, CS= Country/Segment, CSP=Country/Segment/Product */
+        int selectionDepth = new Random().nextInt((max - min) + 1) + min;
+        String operationQueryFilter = "C";
+        switch ( selectionDepth ){
+            case 1:
+                operationQueryFilter = "C";
+                break;
+            case 2:
+                operationQueryFilter = "CS";
+                break;
+            case 3:
+                operationQueryFilter = "CSP";
+                break;
+        }
+
+        String queryFilterCountry = SalesData.getRandomCountry();
+        if ( demoJobsCountryList != null && demoJobsCountryList.length() > 0 ){
+            String [] countryDemoList = demoJobsCountryList.split(",");
+            queryFilterCountry = countryDemoList[new Random().nextInt( countryDemoList.length) ];
+        }
+
+        String queryFilterSegment = SalesData.getRandomSegment();
+        String queryFilterProduct = SalesData.getRandomProduct();
+
+        OperationJob job = new OperationJob(jobType, operationQueryFilter, jobReportLabel, delayBetweenJobMs,
+                queryFilterCountry, queryFilterSegment, queryFilterProduct );
+
+        System.out.println( job );
+        return job;
+    }
+
     private UDFExampleReporting registerLua() {
+        LuaCache.clearPackage("example");
         RegisterTask task = client.register(
                 null,
                 luaExamplePath,
@@ -162,6 +210,8 @@ public class UDFExampleReporting {
         country = defaultProps.getProperty("queryFilterCountry");
         segment = defaultProps.getProperty("queryFilterSegment");
         product = defaultProps.getProperty("queryFilterProduct");
+        runAsDemo = Boolean.parseBoolean( defaultProps.getProperty("demoJobs") );
+        demoJobsCountryList = defaultProps.getProperty("demoJobsCountryList");
     }
     private static Host[] getHosts(String [] listOfIps) {
         Host[] tmpHost = new Host[listOfIps.length];
@@ -172,12 +222,40 @@ public class UDFExampleReporting {
     }
 }
 
-class OperationJob
-{
+class OperationJob {
+
     int operation;
     String queryType;
     int reportLabel;
     long delayBetweenJobMs;
+
+    String country;
+    String segment;
+    String product;
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    public void setSegment(String segment) {
+        this.segment = segment;
+    }
+
+    public void setProduct(String product) {
+        this.product = product;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public String getSegment() {
+        return segment;
+    }
+
+    public String getProduct() {
+        return product;
+    }
 
     public int getOperation() {
         return operation;
@@ -195,12 +273,29 @@ class OperationJob
         return delayBetweenJobMs;
     }
 
-    public OperationJob(int operation, String queryType, int reportType, long delayBetweenJobMs)
+    @Override
+    public String toString() {
+        return "OperationJob{" +
+                "operation=" + operation +
+                ", queryType='" + queryType + '\'' +
+                ", reportLabel=" + reportLabel +
+                ", delayBetweenJobMs=" + delayBetweenJobMs +
+                ", country='" + country + '\'' +
+                ", segment='" + segment + '\'' +
+                ", product='" + product + '\'' +
+                '}';
+    }
+
+    public OperationJob(int operation, String queryType, int reportType, long delayBetweenJobMs,
+                        String country, String segment,String product )
     {
         this.operation = operation;
         this.queryType = queryType;
         this.reportLabel = reportType;
         this.delayBetweenJobMs = delayBetweenJobMs;
+        this.country = country;
+        this.segment = segment;
+        this.product = product;
     }
 }
 

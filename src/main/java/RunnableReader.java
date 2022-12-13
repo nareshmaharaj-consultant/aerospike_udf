@@ -1,10 +1,8 @@
 import com.aerospike.client.AerospikeClient;
-import com.aerospike.client.Host;
 import com.aerospike.client.Value;
 import com.aerospike.client.async.Monitor;
 import com.aerospike.client.exp.Exp;
 import com.aerospike.client.lua.LuaConfig;
-import com.aerospike.client.policy.ClientPolicy;
 import com.aerospike.client.policy.RecordExistsAction;
 import com.aerospike.client.policy.WritePolicy;
 import com.aerospike.client.query.*;
@@ -45,17 +43,16 @@ class RunnableReader implements Runnable {
 
     private boolean running = true;
 
-    RunnableReader(AerospikeConnectionDetails details, OperationJob job,
-                   String country, String segment,String product) {
+    RunnableReader(AerospikeConnectionDetails details, OperationJob job) {
         this.namespace = details.getNamespace();
         this.set = details.getSet();
         this.threadName = details.getName();
         this.monitor = details.getMonitor();
         this.client = new AerospikeClient( details.getClientPolicy(), details.getHosts() );
         this.luaConfigSourcePath = details.getLuaConfigSourcePath();
-        this.country = country;
-        this.segment = segment;
-        this.product = product;
+        this.country = job.getCountry();
+        this.segment = job.getSegment();
+        this.product = job.getProduct();
         this.operation = job.getOperation();
         this.queryField = job.getQueryType();
         this.reportLabel = job.getReportLabel();
@@ -103,7 +100,16 @@ class RunnableReader implements Runnable {
 
     private void populateProfit(String country, String queryField) {
         long timeTakenCSP = calculateProfit( country, queryField );
-        System.out.println( "Compute Profit bins for " + queryField + " in " + ( timeTakenCSP ) + " ms.");
+        System.out.println( "Compute Profit bins for "
+                + additionalQueryFieldInfo(queryField) + " in " + ( timeTakenCSP ) + " ms.");
+    }
+
+    private String additionalQueryFieldInfo(String queryField) {
+        String additionalInfo = "";
+        if ( queryField.equalsIgnoreCase(QF_COUNTRY) ) additionalInfo += country;
+        else if (queryField.equalsIgnoreCase(QF_COUNTRY_SEGMENT)) additionalInfo += country.concat("/").concat(segment);
+        else if (queryField.equalsIgnoreCase(QF_COUNTRY_SEGMENT_PRODUCT)) additionalInfo += country.concat("/").concat(segment).concat("/").concat(product);
+        return "[" + queryField + "] "  + additionalInfo;
     }
 
     private void query(String country, String queryField, int reportLabel ){
@@ -124,12 +130,12 @@ class RunnableReader implements Runnable {
         Object [] result = getAggregationReport( country, queryField, packageName,functionName );
         if ( result != null ) {
             System.out.println(
-                    "Total " + label + " for " + queryField + " = "
+                    "Total " + label + " for " + additionalQueryFieldInfo(queryField) + ", "
                             + (result[0] == null ? "null" : result[0]) + " in "
                             + (result[1] == null ? "null" : result[1]) + " ms.");
         }
         else {
-            System.out.println("No results for " + queryField);
+            System.out.println("No results for " + additionalQueryFieldInfo(queryField));
         }
     }
 
@@ -225,7 +231,7 @@ class RunnableReader implements Runnable {
     }
 
     public void start () {
-        System.out.println("Starting " +  threadName );
+        // System.out.println("Starting " +  threadName );
         if (t == null) {
             t = new Thread (this, threadName);
             t.start ();
