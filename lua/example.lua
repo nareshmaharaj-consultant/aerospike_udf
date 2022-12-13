@@ -41,15 +41,15 @@ function totals(rec, unitsSold, mfgPrice, salesPrice)
     rec["profit"] = profit
 
     rec["profitMargin"] = math.floor( profit / totalSales * 100 )
-    local taxRates = vatRate(rec["country"]) or 20
+    local vat = vatRate(rec["country"]) or 20
 
-    rec["taxRates"] = taxRates
+    rec["taxRates"] = vat
 
-    local taxDue = taxRates * profit / 100
-    if ( taxDue < 0 ) then
-        taxDue = 0
+    local vatDue = ( profit / (100 + vat) ) * vat
+    if ( vatDue < 0 ) then
+        vatDue = 0
     end
-    rec["taxDue"] = taxDue
+    rec["taxDue"] = vatDue
 
     --queryFieldValue required as we cant use Exp with queryAggregate for fine grained filter.
     --if rec[queryFieldBinName] == nil then
