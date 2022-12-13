@@ -4,7 +4,8 @@
 
 User-Defined Functions are functions that run on the server side. User-Defined Functions are written in Lua. Lua is a powerful, fast, lightweight, embeddable scripting language.
 To learn more about User-Defined-Functions visit the 
-![Aerospike Developer Hub](https://developer.aerospike.com/udf/knowing_lua). 
+ - https://developer.aerospike.com/udf/knowing_lua 
+
 This repo hosts a small application to process sales data lines and provide insights on the data. 
 It's purpose is educational. Some of Aerospike features used are as follows
 
@@ -14,7 +15,7 @@ It's purpose is educational. Some of Aerospike features used are as follows
   - Using Expressions to limit the records touched.
 
 
-###Overview of source files
+### Overview of source files
 
 ```UDFExampleDataLoader```
   - Used for loading the sample sales data
