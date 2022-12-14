@@ -3,46 +3,44 @@
 ### User Defined Functions
 
 User-Defined Functions are functions that run on the server side. User-Defined Functions are written in Lua. Lua is a powerful, fast, lightweight, embeddable scripting language.
-To learn more about User-Defined-Functions visit the 
+To learn more about User-Defined-Functions visit:  
  - https://developer.aerospike.com/udf/knowing_lua 
 
 This repo hosts a small application to process sales data lines and provide insights on the data. 
-It's purpose is educational. Some of the Aerospike features used in this example are as listed as follows
+It's purpose is educational. Some of the Aerospike features used in this example are listed below.
 
   - Aggregation Streaming - 
-    - application level filtering 
-       - using Filter
-       - modelling & secondary Indexes with Map Values
-  - UDF level Filtering 
-      - using streams
+    - Application Level Filtering 
+       - Using Filter
+       - Modelling & Secondary Indexes with Map Values
+  - UDF Level Filtering 
+      - Using Streams
   - Updating records with server side computed fields using UDF.
-  - Using Expressions to limit the records touched.
+  - Using Aerospike Expressions to limit the records touched.
 
 ### Overview of source files
 
 ```UDFExampleDataLoader```
-  - Used for loading the sample sales data
-  - there is a main class 
-  - configure it from the property file under section *Loader*
-  - data can be randomised
-  - will call RunnableLoader thread class to simulate several clients loading data
+  - Used for loading the sample data set
+  - Configurable from the property file - section *Loader*
+  - Data can be randomised
+  - Calls ```RunnableLoader``` class to simulate several clients loading data
  
 ```UDFExampleReporting```
   - Used for reading data and calling the UDFs
-  - there is a main class
-  - configure it from the property file under section *Reader*
+  - Configurable from the property file under section *Reader*
   - UDFs will use Aggregation, Filters and Record level updates
-  - will call RunnableReader or RunnableReaderFilter, the difference being the latter will use UDF filters in the streaming.
+  - Calls ```RunnableReader``` or ```RunnableReaderFilter```, the difference being the latter will use UDF filters in the streaming.
   
 ```Sales Data```
-  - this class will make random sales data for you.
-  - it's configurable in the property file under section *Reader*
+  - Will produce random sales data.
+  - Configurable in the property file under section *Reader*
 
 ### Getting Started
 
 #### Docker
 
-Open up 3 shell windows. Run an instance of the Aerospike Database in docker container with the following command
+Open 3 shell windows. Run an instance of the Aerospike Database in a docker container with the following command
 
 In window 1: Run the docker command
 ```bash
@@ -52,14 +50,14 @@ In window 1: Tail the log file using
 ```bash
 docker logs aerospike -f
 ```
-In window 2: Log into the command line interactive shell for Aerospike call aql.
+In window 2: Log into the command line and use the interactive shell for Aerospike called aql.
 ```bash
 docker run -ti aerospike/aerospike-tools:latest aql -h  $(docker inspect -f '{{.NetworkSettings.IPAddress }}' aerospike)
 ```
 
 #### Project
-In Window 3: We will run the writer application being the dataloader.
-The directory stucture should resemble
+In Window 3: We will run the writer application being the data loader.
+The directory structure should resemble the following.
 ```text 
 ├── README.md
 ├── data
@@ -91,11 +89,13 @@ The directory stucture should resemble
 ```
 
 #### Running Data Loader
-Run from the command line:
+Run from the command line. Its assumes you have a Java Runtime Environment set up.
 ```java 
 java -jar out/artifacts/app/udf.jar
 ```
-By default and based on the default.properties file, a random selection of data for 10,000 records will be written to the namespace test and set financialdata in the database.
+By default, and based on the default.properties file, a random selection of data for 10,000 
+records will be written to the ```namespace: test``` and ```set: financialdata``` in the database.
+The application will echo to stdout the number of writes of records / second.
 
 #### Running Data Reader
 Change the app to reader mode by editing the default.properties file section below.
@@ -108,15 +108,15 @@ Now run the application again.
 ```java 
 java -jar out/artifacts/app/udf.jar
 ```
-As we have not configured the reader it will start a demo with default settings
- - run 100 client connection threads
- - creating client jobs where jobs will either be 
-   - computing additional value-added fields
-   - streaming data using UDFs to produce aggregated results
+As we have not configured the reader it will start a demo run with default settings
+ - Spin up 100 client connection threads
+ - Creating client jobs where jobs will either be 
+   - Computing additional value-added fields
+   - Streaming data using UDFs to produce aggregated results
 
 #### Results
-Results explained below and these lines can be muted in the config file.
-Consider sales lines are made up of significant fields
+Results are explained below and these lines can be muted in the config file too.
+Consider that sales lines are made up of significant fields
  - country - where the sale took place
  - segment - what part of industry does it refer to
  - product - what was sold
@@ -147,8 +147,9 @@ No results for [CSP] India/Government/Connect for JMS
 ```text
 Compute Profit bins for [C] Morocco in 1008 ms.
 ``` 
-This creates value added fields to the data such as queryField, totalSales, totalCost, profit, profitMargin, taxRates and taxDue
-We will discuss the field queryField in more detail further down.
+This creates new value added fields to the data such as 
+```queryField, totalSales, totalCost, profit, profitMargin, taxRates, taxDue```.
+We discuss the field ```queryField``` in more detail further down.
 
 ```text
 SELECT  *  FROM test.financialdata  WHERE country = "Morocco"
@@ -172,21 +173,26 @@ SELECT  *  FROM test.financialdata  WHERE country = "Morocco"
 ```text
 Total VAT for [C] Morocco, £190,999.51 in 9 ms.
 ```
-Is the taxes due on sales for all order in the country Morocco. We know this as [C] is telling us the aggregation report produced was at the country level.
+Taxes due on sales for all order in the country Morocco. 
+We know this becuase [C] is telling us the aggregation report produced was purely at the country level.
 
 *Total Sales*
 ```text
 Total SALES for [CS] Germany/Sport, £65,224.00 in 4 ms.
 ```
-Is the total number of sales made for the Country Germany in the segment Sport. We know this as [CS] is telling us the aggregation report produced was at the country / segment filter level.
+Is the total number of sales made for the Country Germany in the segment Sport. 
+We also know this as [CS] is telling us the aggregation report produced was for the country / segment filter level.
 
 *No Results*
 ```text
 No results for [CSP] India/Government/Connect for JMS
 ```
-As the reader is generating the client jobs some data it is searching for may not yet be available.
-For e.g. we are trying to aggregate a report on all products sold in India for the market segment Government for the product "Connect for JMS"
-If we do a query we can see what is available. We can use our bin queryField this time. 
+As the reader class ```RunnableReader``` is generating the client jobs, some data in the query job may not
+be present in the database so searching for it may yeild no results.
+For e.g. we are trying to aggregate a report on all products sold in *India* for the market segment
+*Government* for the product *"Connect for JMS"*
+If we query the database, we can see the data is not present. We can use our bin field ```queryField``` to 
+verify this. 
 
 ```text
 SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "India/Government/Connect for JMS"
@@ -194,7 +200,7 @@ SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "India/Governme
 
 OK
 ```
-Clearly there is no data. Lets open up the filter to allow more results.
+Clearly there no data. Let's open up the filter to allow more results.
 ```text
 SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "India/Government"
 +--------------+---------+---------------------+-----------+----------+------------+--------------+-------------------------------------------------------------------------------------------------------+------------+-----------+--------+--------------+----------+--------+
@@ -206,9 +212,9 @@ SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "India/Governme
 
 OK
 ```
-So we can see that in India for market segment Government only 1 product was sold "Connect for Spark"
+We can see in *India* the market segment *Government* only has 1 product line sold - *"Connect for Spark"*.
 
-If we open this up further we can see all products sold in India.
+If we open this up even further, we can see all products sold in India.
 ```text
 SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "India"
 +--------------------+---------+-----------------------------------+-----------+----------+------------+--------------+--------------------------------------------------------------------------------------------------------------------------+------------+-----------+---------+--------------+----------+-------------------+
@@ -257,22 +263,32 @@ OK
 
 ### Filtering
 
-There are 2 ways in which we can filter the data where the filtering is based on more than 1 bin and which aggregation results are required.
-- Filtering with a secondary index using Map Keys or Map Values
+There are 2 possibilities in which to filter data where filtering is based on more than 1 bin and 
+where the intention of the query is aggregated results.
+- Filtering with a Secondary Index using Map Keys or Map Values
 - Filtering in the UDF itself as part of the stream when aggregating.
 
-Given the default behaviour in the code is to use the UDF filtering, lets take a deeper look at how this is implemented.
+Given the default behaviour is to use UDF filtering, let's checkout the implementation.
 
-Filtering is based on bins 
+Filtering is based on more than one bin as follows
+
 ```segment            | country | product```
 
-So if we are not using the demo mode
+Switch off the demo mode feature.
 ```bash
 # Run a sample of jobs based on number of numberOfClientsReaders
+...
 demoJobs=false
+...
 ```
-then we would fallback to the reader configuration below which is filtering 
-for Country and Segment and Product in order to produce a tax aggregation report.
+By not using the demo, you would fallback to the default reader configuration which is 
+an aggregation query, filtering on Country, Segment and Product in order to produce 
+a tax aggregation report for Technology products sold in the Enterprise business segment
+of Italy.
+<div className="text--center">
+![img.png](img.png)
+</div>
+
 ```bash
 # ------ Reader -------- #
 numberOfClientsReaders=100
@@ -427,7 +443,7 @@ Or the easier on the eye view in JSON
   "IND/CS": "India/Channel Partners",
   "IND/CSP": "India/Channel Partners/Aerospike Database",
   "IND/C": "India"
-}'
+}
 ```
 So by now you should be familiar with the content. But to be sure lets discuss one of the lines.
 ```json
