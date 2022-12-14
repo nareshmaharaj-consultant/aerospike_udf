@@ -60,7 +60,7 @@ docker run -ti aerospike/aerospike-tools:latest aql -h  $(docker inspect -f '{{.
 #### Project
 In Window 3: We will run the writer application being the dataloader.
 The directory stucture should resemble
-```bash 
+```text 
 ├── README.md
 ├── data
 │   └── FinancialSample.csv
@@ -122,7 +122,7 @@ Consider sales lines are made up of significant fields
  - product - what was sold
 
 In window 2: Run the following query to show a sample.
-```bash
+```text
 SELECT segment,country,product,unitsSold,mfgPrice,salesPrice,date  FROM test.financialdata  WHERE country = "Italy"
 +--------------------+----------+-------------------------------------+------------+-----------+-------------+--------------+
 | segment            | country  | product                             | unitsSold  | mfgPrice  | salesPrice  | date         |
@@ -137,15 +137,20 @@ SELECT segment,country,product,unitsSold,mfgPrice,salesPrice,date  FROM test.fin
 ```
 Here are some of the results from the reader output.
 
-```bash
+```text
 Compute Profit bins for [C] Morocco in 1008 ms.
 Total VAT for [C] Morocco, £190,999.51 in 9 ms.
 Total SALES for [CS] Germany/Sport, £65,224.00 in 4 ms.
 No results for [CSP] India/Government/Connect for JMS
 ```
-Compute is creating value added fields to the data such as queryField, totalSales, totalCost, profit, profitMargin, taxRates and taxDue
+*Compute* 
+```text
+Compute Profit bins for [C] Morocco in 1008 ms.
+``` 
+This creates value added fields to the data such as queryField, totalSales, totalCost, profit, profitMargin, taxRates and taxDue
 We will discuss the field queryField in more detail further down.
-```bash
+
+```text
 SELECT  *  FROM test.financialdata  WHERE country = "Morocco"
 +--------------------+-----------+--------------------------------+-----------+----------+------------+--------------+----------------------------------------------------------------------------------------------------------------------------------+------------+-----------+---------+--------------+----------+-------------------+
 | segment            | country   | product                        | unitsSold | mfgPrice | salesPrice | date         | queryField                                                                                                                       | totalSales | totalCost | profit  | profitMargin | taxRates | taxDue            |
@@ -161,5 +166,92 @@ SELECT  *  FROM test.financialdata  WHERE country = "Morocco"
 | "Channel Partners" | "Morocco" | "Connect for Presto"           | 282       | 80       | 7          | "01/10/2014" | MAP('{"MAR/CS":"Morocco/Channel Partners", "MAR/CSP":"Morocco/Channel Partners/Connect for Presto", "MAR/C":"Morocco"}')         | 1974       | 22560     | -20586  | -1043        | 20       | 0                 |
 | "Channel Partners" | "Morocco" | "Dynamic Cluster Management"   | 1564      | 5        | 105        | "01/07/2014" | MAP('{"MAR/CS":"Morocco/Channel Partners", "MAR/CSP":"Morocco/Channel Partners/Dynamic Cluster Management", "MAR/C":"Morocco"}') | 164220     | 7820      | 156400  | 95           | 20       | 26066.66666666666 |
 +--------------------+-----------+--------------------------------+-----------+----------+------------+--------------+----------------------------------------------------------------------------------------------------------------------------------+------------+-----------+---------+--------------+----------+-------------------+
+```
+
+*Total VAT* 
+```text
+Total VAT for [C] Morocco, £190,999.51 in 9 ms.
+```
+Is the taxes due on sales for all order in the country Morocco. We know this as [C] is telling us the aggregation report produced was at the country level.
+
+*Total Sales*
+```text
+Total SALES for [CS] Germany/Sport, £65,224.00 in 4 ms.
+```
+Is the total number of sales made for the Country Germany in the segment Sport. We know this as [CS] is telling us the aggregation report produced was at the country / segment filter level.
+
+*No Results*
+```text
+No results for [CSP] India/Government/Connect for JMS
+```
+As the reader is generating the client jobs some data it is searching for may not yet be available.
+For e.g. we are trying to aggregate a report on all products sold in India for the market segment Government for the product "Connect for JMS"
+If we do a query we can see what is available. We can use our bin queryField this time. 
+
+```text
+SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "India/Government/Connect for JMS"
+0 rows in set (0.012 secs)
+
+OK
+```
+Clearly there is no data. Lets open up the filter to allow more results.
+```text
+SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "India/Government"
++--------------+---------+---------------------+-----------+----------+------------+--------------+-------------------------------------------------------------------------------------------------------+------------+-----------+--------+--------------+----------+--------+
+| segment      | country | product             | unitsSold | mfgPrice | salesPrice | date         | queryField                                                                                            | totalSales | totalCost | profit | profitMargin | taxRates | taxDue |
++--------------+---------+---------------------+-----------+----------+------------+--------------+-------------------------------------------------------------------------------------------------------+------------+-----------+--------+--------------+----------+--------+
+| "Government" | "India" | "Connect for Spark" | 167       | 53       | 1          | "01/11/2014" | MAP('{"IND/CS":"India/Government", "IND/CSP":"India/Government/Connect for Spark", "IND/C":"India"}') | 167        | 8851      | -8684  | -5200        | 20       | 0      |
++--------------+---------+---------------------+-----------+----------+------------+--------------+-------------------------------------------------------------------------------------------------------+------------+-----------+--------+--------------+----------+--------+
+1 row in set (0.010 secs)
+
+OK
+```
+So we can see that in India for market segment Government only 1 product was sold "Connect for Spark"
+
+If we open this up further we can see all products sold in India.
+```text
+SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "India"
++--------------------+---------+-----------------------------------+-----------+----------+------------+--------------+--------------------------------------------------------------------------------------------------------------------------+------------+-----------+---------+--------------+----------+-------------------+
+| segment            | country | product                           | unitsSold | mfgPrice | salesPrice | date         | queryField                                                                                                               | totalSales | totalCost | profit  | profitMargin | taxRates | taxDue            |
++--------------------+---------+-----------------------------------+-----------+----------+------------+--------------+--------------------------------------------------------------------------------------------------------------------------+------------+-----------+---------+--------------+----------+-------------------+
+| "Channel Partners" | "India" | "Aerospike Database"              | 1213      | 3        | 12         | "01/10/2014" | MAP('{"IND/CS":"India/Channel Partners", "IND/CSP":"India/Channel Partners/Aerospike Database", "IND/C":"India"}')       | 14556      | 3639      | 10917   | 75           | 20       | 1819.5            |
+| "Midmarket"        | "India" | "Aerospike Database"              | 320       | 2        | 102        | "01/06/2014" | MAP('{"IND/CS":"India/Midmarket", "IND/CSP":"India/Midmarket/Aerospike Database", "IND/C":"India"}')                     | 32640      | 640       | 32000   | 98           | 20       | 5333.333333333334 |
+| "Health"           | "India" | "Technology"                      | 488       | 241      | 5          | "01/06/2014" | MAP('{"IND/CS":"India/Health", "IND/CSP":"India/Health/Technology", "IND/C":"India"}')                                   | 2440       | 117608    | -115168 | -4720        | 20       | 0                 |
+| "Retail"           | "India" | "Connect for Presto"              | 555       | 23       | 14         | "01/11/2014" | MAP('{"IND/CS":"India/Retail", "IND/CSP":"India/Retail/Connect for Presto", "IND/C":"India"}')                           | 7770       | 12765     | -4995   | -65          | 20       | 0                 |
+| "Sport"            | "India" | "Features and Editions"           | 1722      | 28       | 300        | "01/10/2014" | MAP('{"IND/CS":"India/Sport", "IND/CSP":"India/Sport/Features and Editions", "IND/C":"India"}')                          | 516600     | 48216     | 468384  | 90           | 20       | 78064             |
+| "Midmarket"        | "India" | "Connect for Pulsar"              | 873       | 109      | 18         | "01/06/2014" | MAP('{"IND/CS":"India/Midmarket", "IND/CSP":"India/Midmarket/Connect for Pulsar", "IND/C":"India"}')                     | 15714      | 95157     | -79443  | -506         | 20       | 0                 |
+| "Health"           | "India" | "Aerospike Cloud Managed Service" | 122       | 27       | 79         | "01/09/2014" | MAP('{"IND/CS":"India/Health", "IND/CSP":"India/Health/Aerospike Cloud Managed Service", "IND/C":"India"}')              | 9638       | 3294      | 6344    | 65           | 20       | 1057.333333333333 |
+| "Retail"           | "India" | "Hybrid Memory Architecture"      | 72        | 1        | 90         | "01/09/2013" | MAP('{"IND/CS":"India/Retail", "IND/CSP":"India/Retail/Hybrid Memory Architecture", "IND/C":"India"}')                   | 6480       | 72        | 6408    | 98           | 20       | 1068              |
+| "Government"       | "India" | "Connect for Spark"               | 167       | 53       | 1          | "01/11/2014" | MAP('{"IND/CS":"India/Government", "IND/CSP":"India/Government/Connect for Spark", "IND/C":"India"}')                    | 167        | 8851      | -8684   | -5200        | 20       | 0                 |
+| "Midmarket"        | "India" | "Cross Datacenter Replication"    | 1020      | 84       | 1          | "01/12/2014" | MAP('{"IND/CS":"India/Midmarket", "IND/CSP":"India/Midmarket/Cross Datacenter Replication", "IND/C":"India"}')           | 1020       | 85680     | -84660  | -8300        | 20       | 0                 |
+| "Retail"           | "India" | "Dynamic Cluster Management"      | 381       | 39       | 97         | "01/10/2014" | MAP('{"IND/CS":"India/Retail", "IND/CSP":"India/Retail/Dynamic Cluster Management", "IND/C":"India"}')                   | 36957      | 14859     | 22098   | 59           | 20       | 3683              |
+| "Sport"            | "India" | "Aerospike SQL"                   | 1132      | 3        | 2          | "01/10/2013" | MAP('{"IND/CS":"India/Sport", "IND/CSP":"India/Sport/Aerospike SQL", "IND/C":"India"}')                                  | 2264       | 3396      | -1132   | -50          | 20       | 0                 |
+| "Channel Partners" | "India" | "Connect for Spark"               | 1097      | 4        | 12         | "01/11/2013" | MAP('{"IND/CS":"India/Channel Partners", "IND/CSP":"India/Channel Partners/Connect for Spark", "IND/C":"India"}')        | 13164      | 4388      | 8776    | 66           | 20       | 1462.666666666667 |
+| "Retail"           | "India" | "Aerospike Cloud Managed Service" | 855       | 1        | 2          | "01/11/2013" | MAP('{"IND/CS":"India/Retail", "IND/CSP":"India/Retail/Aerospike Cloud Managed Service", "IND/C":"India"}')              | 1710       | 855       | 855     | 50           | 20       | 142.5             |
+| "Midmarket"        | "India" | "Connect"                         | 48        | 1        | 2          | "01/10/2013" | MAP('{"IND/CS":"India/Midmarket", "IND/CSP":"India/Midmarket/Connect", "IND/C":"India"}')                                | 96         | 48        | 48      | 50           | 20       | 8                 |
+| "Retail"           | "India" | "Connect for Presto"              | 1367      | 22       | 12         | "01/11/2013" | MAP('{"IND/CS":"India/Retail", "IND/CSP":"India/Retail/Connect for Presto", "IND/C":"India"}')                           | 16404      | 30074     | -13670  | -84          | 20       | 0                 |
+| "Health"           | "India" | "Connect for Presto"              | 222       | 97       | 98         | "01/09/2014" | MAP('{"IND/CS":"India/Health", "IND/CSP":"India/Health/Connect for Presto", "IND/C":"India"}')                           | 21756      | 21534     | 222     | 1            | 20       | 37                |
+| "Enterprise"       | "India" | "Connect for Kafka"               | 670       | 0        | 9          | "01/06/2014" | MAP('{"IND/CS":"India/Enterprise", "IND/CSP":"India/Enterprise/Connect for Kafka", "IND/C":"India"}')                    | 6030       | 0         | 6030    | 100          | 20       | 1005              |
+| "Midmarket"        | "India" | "Document Database"               | 282       | 0        | 43         | "01/11/2013" | MAP('{"IND/CS":"India/Midmarket", "IND/CSP":"India/Midmarket/Document Database", "IND/C":"India"}')                      | 12126      | 0         | 12126   | 100          | 20       | 2021              |
+| "Enterprise"       | "India" | "Aerospike SQL"                   | 1724      | 8        | 1          | "01/11/2013" | MAP('{"IND/CS":"India/Enterprise", "IND/CSP":"India/Enterprise/Aerospike SQL", "IND/C":"India"}')                        | 1724       | 13792     | -12068  | -700         | 20       | 0                 |
+| "Health"           | "India" | "Connect for ESP"                 | 412       | 1        | 204        | "01/01/2014" | MAP('{"IND/CS":"India/Health", "IND/CSP":"India/Health/Connect for ESP", "IND/C":"India"}')                              | 84048      | 412       | 83636   | 99           | 20       | 13939.33333333333 |
+| "Small Business"   | "India" | "Cloud"                           | 990       | 2        | 6          | "01/10/2014" | MAP('{"IND/CS":"India/Small Business", "IND/CSP":"India/Small Business/Cloud", "IND/C":"India"}')                        | 5940       | 1980      | 3960    | 66           | 20       | 660               |
+| "Midmarket"        | "India" | "Aerospike Monitoring"            | 1020      | 35       | 93         | "01/05/2014" | MAP('{"IND/CS":"India/Midmarket", "IND/CSP":"India/Midmarket/Aerospike Monitoring", "IND/C":"India"}')                   | 94860      | 35700     | 59160   | 62           | 20       | 9860              |
+| "Sport"            | "India" | "Aerospike Monitoring"            | 750       | 7        | 12         | "01/08/2014" | MAP('{"IND/CS":"India/Sport", "IND/CSP":"India/Sport/Aerospike Monitoring", "IND/C":"India"}')                           | 9000       | 5250      | 3750    | 41           | 20       | 625               |
+| "Retail"           | "India" | "Connect for Presto"              | 1046      | 4        | 1          | "01/02/2014" | MAP('{"IND/CS":"India/Retail", "IND/CSP":"India/Retail/Connect for Presto", "IND/C":"India"}')                           | 1046       | 4184      | -3138   | -300         | 20       | 0                 |
+| "Small Business"   | "India" | "Cross Datacenter Replication"    | 2595      | 1        | 2          | "01/10/2013" | MAP('{"IND/CS":"India/Small Business", "IND/CSP":"India/Small Business/Cross Datacenter Replication", "IND/C":"India"}') | 5190       | 2595      | 2595    | 50           | 20       | 432.5             |
+| "Channel Partners" | "India" | "Connect for Spark"               | 218       | 0        | 6          | "01/05/2014" | MAP('{"IND/CS":"India/Channel Partners", "IND/CSP":"India/Channel Partners/Connect for Spark", "IND/C":"India"}')        | 1308       | 0         | 1308    | 100          | 20       | 218               |
+| "Education"        | "India" | "Cross Datacenter Replication"    | 993       | 1        | 15         | "01/01/2014" | MAP('{"IND/CS":"India/Education", "IND/CSP":"India/Education/Cross Datacenter Replication", "IND/C":"India"}')           | 14895      | 993       | 13902   | 93           | 20       | 2317              |
+| "Channel Partners" | "India" | "Aerospike on AWS"                | 806       | 1        | 94         | "01/08/2014" | MAP('{"IND/CS":"India/Channel Partners", "IND/CSP":"India/Channel Partners/Aerospike on AWS", "IND/C":"India"}')         | 75764      | 806       | 74958   | 98           | 20       | 12493             |
+| "Midmarket"        | "India" | "Features and Editions"           | 495       | 22       | 3          | "01/12/2014" | MAP('{"IND/CS":"India/Midmarket", "IND/CSP":"India/Midmarket/Features and Editions", "IND/C":"India"}')                  | 1485       | 10890     | -9405   | -634         | 20       | 0                 |
+| "Channel Partners" | "India" | "Connect for Kafka"               | 703       | 3        | 10         | "01/06/2014" | MAP('{"IND/CS":"India/Channel Partners", "IND/CSP":"India/Channel Partners/Connect for Kafka", "IND/C":"India"}')        | 7030       | 2109      | 4921    | 70           | 20       | 820.1666666666666 |
+| "Health"           | "India" | "Aerospike Monitoring"            | 892       | 205      | 11         | "01/09/2013" | MAP('{"IND/CS":"India/Health", "IND/CSP":"India/Health/Aerospike Monitoring", "IND/C":"India"}')                         | 9812       | 182860    | -173048 | -1764        | 20       | 0                 |
+| "Enterprise"       | "India" | "Features and Editions"           | 80        | 17       | 10         | "01/12/2013" | MAP('{"IND/CS":"India/Enterprise", "IND/CSP":"India/Enterprise/Features and Editions", "IND/C":"India"}')                | 800        | 1360      | -560    | -70          | 20       | 0                 |
+| "Channel Partners" | "India" | "Aerospike Database"              | 898       | 2        | 3          | "01/09/2014" | MAP('{"IND/CS":"India/Channel Partners", "IND/CSP":"India/Channel Partners/Aerospike Database", "IND/C":"India"}')       | 2694       | 1796      | 898     | 33           | 20       | 149.6666666666667 |
+| "Retail"           | "India" | "Dynamic Cluster Management"      | 615       | 8        | 10         | "01/02/2014" | MAP('{"IND/CS":"India/Retail", "IND/CSP":"India/Retail/Dynamic Cluster Management", "IND/C":"India"}')                   | 6150       | 4920      | 1230    | 20           | 20       | 205               |
++--------------------+---------+-----------------------------------+-----------+----------+------------+--------------+--------------------------------------------------------------------------------------------------------------------------+------------+-----------+---------+--------------+----------+-------------------+
+35 rows in set (0.012 secs)
+
+OK
 ```
 
