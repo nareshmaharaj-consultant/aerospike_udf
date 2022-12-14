@@ -407,4 +407,125 @@ protected ResultSet getAggregateQueryFilterResult(String queryType, Statement st
         return null;
         }    
 ```
+#### Filter with Secondary Indexes
+To use secondary indexes we need to change the default behaviour of our filtering. Go ahead and 
+set the field below to false. This will use the following class to produce the reports we need ```class RunnableReader```.
+
+```bash
+# ------ Reader -------- #
+useUDFFilterLogic=false
+```
+
+Earlier mentioned about the bin ```queryField``` but we did not explain the data values in
+```queryField```. The data is essentially a map of key:values. Below is an example
+```bash
+MAP('{"IND/CS":"India/Channel Partners", "IND/CSP":"India/Channel Partners/Aerospike Database", "IND/C":"India"}')
+```
+Or the easier on the eye view in JSON
+```json
+{
+  "IND/CS": "India/Channel Partners",
+  "IND/CSP": "India/Channel Partners/Aerospike Database",
+  "IND/C": "India"
+}'
+```
+So by now you should be familiar with the content. But to be sure lets discuss one of the lines.
+```json
+"IND/CSP": "India/Channel Partners/Aerospike Database"
+```
+- IND is the ISO3 code for India
+- India is the country
+- Channel Partners is the segment
+- Aerospike Database is the product line
+
+This means that we can search the bin independently for all records based on the 
+- country
+- country and segment
+- or all three country, segment and product
+
+```bash
+aql> set output JSON
+OUTPUT = JSON
+aql> SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "Italy/Enterprise/Aerospike on AWS"
+
+[
+    [
+        {
+          "segment": "Enterprise",
+          "country": "Italy",
+          "product": "Aerospike on AWS",
+          "unitsSold": 1361,
+          "mfgPrice": 2,
+          "salesPrice": 228,
+          "date": "01/12/2014",
+          "queryField": {
+            "ITA/CSP": "Italy/Enterprise/Aerospike on AWS",
+            "ITA/CS": "Italy/Enterprise",
+            "ITA/C": "Italy"
+          },
+          "totalSales": 310308,
+          "totalCost": 2722,
+          "profit": 307586,
+          "profitMargin": 99,
+          "taxRates": 20,
+          "taxDue": 51264.333333333336
+        }
+    ],
+    [
+        {
+          "Status": 0
+        }
+    ]
+]
+```
+#### Secondary Indexes
+To support this query we need the indexes in place. In our case we need an index of type ```mapvalues```.
+These are all created in the application code when the data is loaded using ```UDFExampleDataLoader```.
+```bash
+aql> set output TABLE
+OUTPUT = TABLE
+aql> show indexes
++--------+---------+-----------------+-------------+-----------------+-------+---------------------+-----------+
+| ns     | context | bin             | indextype   | set             | state | indexname           | type      |
++--------+---------+-----------------+-------------+-----------------+-------+---------------------+-----------+
+| "test" | "null"  | "country"       | "default"   | "financialdata" | "RW"  | "country_idx"       | "string"  |
+| "test" | "null"  | "queryField"    | "mapvalues" | "financialdata" | "RW"  | "queryFieldVals"    | "string"  |
++--------+---------+-----------------+-------------+-----------------+-------+---------------------+-----------+
+```
+
+The class ```RunnableReader``` which used Secondary Indexes has the code snippet below 
+which calls the aggregation. Note the filter being used ```IndexCollectionType.MAPVALUES```.
+```java
+/**
+     * Note, you cannot use expression filters with queryAggregate
+     * QueryPolicy qPolicy = new QueryPolicy();
+     * qPolicy.filterExp = Exp.build(expFilter);
+     *
+     * @param queryField
+     * @return
+     */
+    protected Object[] getAggregationReport( String queryField, String packageName, String functionName ) {
+        String queryFieldMapValue = getQueryFieldMapValue(queryField);
+        Filter f = Filter.contains(QF_BIN_NAME, IndexCollectionType.MAPVALUES, queryFieldMapValue);
+
+        long startTime = System.currentTimeMillis();
+        LuaConfig.SourceDirectory = luaConfigSourcePath;
+
+        Statement stmt = new Statement();
+        stmt.setNamespace(namespace);
+        stmt.setSetName(set);
+        stmt.setFilter( f );
+        stmt.setAggregateFunction(packageName, functionName );
+        ResultSet resultSet = client.queryAggregate(null, stmt);
+
+        Iterator itr = resultSet.iterator();
+        if (itr.hasNext()) {
+            long endTime = System.currentTimeMillis();
+            Long timeTaken = endTime - startTime;
+            Object result = itr.next();
+            return new Object[]{result, timeTaken};
+        }
+        return null;
+    }
+```
 

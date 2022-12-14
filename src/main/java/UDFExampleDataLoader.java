@@ -35,25 +35,6 @@ public class UDFExampleDataLoader {
     static AtomicInteger oldCoounter = new AtomicInteger();
 
     public UDFExampleDataLoader() throws Exception {
-
-//        ClientPolicy clientPolicy = new ClientPolicy();
-//        clientPolicy.user = user;
-//        clientPolicy.password = pwd;
-//        clientPolicy.authMode = authmode;
-//        this.clientPolicy = clientPolicy;
-//
-//        AerospikeClient client = new AerospikeClient(clientPolicy, hosts);
-//        this.client= client;
-//        deleteIndex(namespace, set, "country");
-//        deleteIndex(namespace, set, "totalSales");
-//        deleteIndex(namespace, set, "queryField");
-//        createIndex(namespace, set, "country", IndexType.STRING );
-//        createIndex(namespace, set, "totalSales", IndexType.NUMERIC );
-//        createIndexList("queryFieldKeys",namespace, set, "queryField", IndexType.STRING, IndexCollectionType.MAPKEYS );
-//        createIndexList("queryFieldVals", namespace, set, "queryField", IndexType.STRING, IndexCollectionType.MAPVALUES );
-//
-//        if ( truncateBeforeStarting )
-//            client.truncate(null, namespace, set, null);
     }
 
     public void main() throws InterruptedException {
