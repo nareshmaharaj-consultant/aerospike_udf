@@ -1,4 +1,8 @@
-# Aerospike UDFs
+
+
+![img.png](out/artifacts/img3.png)
+
+
 
 ### User Defined Functions
 
@@ -285,9 +289,9 @@ By not using the demo, you would fallback to the default reader configuration wh
 an aggregation query, filtering on Country, Segment and Product in order to produce 
 a tax aggregation report for Technology products sold in the Enterprise business segment
 of Italy.
-<p align="center">
+
 ![img.png](out/artifacts/img.png)
-</p>
+
 
 ```bash
 # ------ Reader -------- #
@@ -310,7 +314,7 @@ queryFilterCountry=Italy
 queryFilterSegment=Enterprise
 queryFilterProduct=Technology
 ```
-You may have also noticed the line that ensure we are using the UDF for filtering.
+You might have noticed the line below which reinforces we are using the UDF code for filtering.
 ```bash 
 useUDFFilterLogic=false
 ```
@@ -324,8 +328,8 @@ The Lua file where the UDF is defined is found in the lua/ directory.
 ```
 
 This is what the VAT(tax) aggregation code looks like. It first calls the filter function to 
-determine if a record should be allowed to pass into the aggregate function. If so, then the results are 
-aggregated and sent to the reduce function.
+determine if a record should be allowed to pass into the aggregate function. If so, the results from the  
+aggregate are then sent to the reduce function.
 
 ```lua
 -- STREAMS FUNCTIONS FOR AGGREGATION (Filter) --
@@ -335,8 +339,8 @@ function calculateVatDueFilter(stream, country, segment, product)
 end
 ```
 
-Here is the filter function which takes our 3 bin values ```country, segment and product```.
-It is also checking for ```country, segment, null``` and ```also country, null, null```.
+Here is the filter function from class ```RunnableReaderFilter```which takes our 3 bin values ```country, segment and product```.
+It is also checks for ```[country, segment, null]``` and also, ```[country, null, null]```.
 ```lua
 -- FILTERS --
 local function countrySegmentProductFilterClosure(country_arg, segment_arg, product_arg)
@@ -379,9 +383,8 @@ local function countrySegmentProductFilterClosure(country_arg, segment_arg, prod
 end
 ```
 
-In the application code we are calling the same in ```class RunnableReaderFilter``` 
-and filtering on country regardless. Finally we call the method ```getAggregateQueryFilterResult(...)```
-that will return our filtered aggregated data. It is worth noting that currently you cannot supply 
+In the application we are filtering on country regardless. Finally we call the method ```getAggregateQueryFilterResult(...)```
+which returns the filtered aggregated data. It is worth noting that currently you **cannot** use 
 an Aerospike Expression to do this.
 
 ```java
