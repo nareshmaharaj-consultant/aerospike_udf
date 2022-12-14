@@ -255,3 +255,156 @@ SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "India"
 OK
 ```
 
+### Filtering
+
+There are 2 ways in which we can filter the data where the filtering is based on more than 1 bin and which aggregation results are required.
+- Filtering with a secondary index using Map Keys or Map Values
+- Filtering in the UDF itself as part of the stream when aggregating.
+
+Given the default behaviour in the code is to use the UDF filtering, lets take a deeper look at how this is implemented.
+
+Filtering is based on bins 
+```segment            | country | product```
+
+So if we are not using the demo mode
+```bash
+# Run a sample of jobs based on number of numberOfClientsReaders
+demoJobs=false
+```
+then we would fallback to the reader configuration below which is filtering 
+for Country and Segment and Product in order to produce a tax aggregation report.
+```bash
+# ------ Reader -------- #
+numberOfClientsReaders=100
+timeForJobMs=120000
+delayBetweenJobMs=2000
+useUDFFilterLogic=false
+
+# compute or query
+operationQueryType=query
+
+# C=Country, CS= Country/Segment, CSP=Country/Segment/Product
+operationQueryFilter=CSP
+
+# sales or vat
+operationQueryReportLabel=VAT
+
+# Query filter values passed in
+queryFilterCountry=Italy
+queryFilterSegment=Enterprise
+queryFilterProduct=Technology
+```
+You may have also noticed the line that ensure we are using the UDF for filtering.
+```bash 
+useUDFFilterLogic=false
+```
+
+#### UDF Filter code
+
+The Lua file where the UDF is defined is found in the lua/ directory.
+```bash
+├── lua
+│   └── example.lua
+```
+
+This is what the VAT(tax) aggregation code looks like. It first calls the filter function to 
+determine if a record should be allowed to pass into the aggregate function. If so, then the results are 
+aggregated and sent to the reduce function.
+
+```lua
+-- STREAMS FUNCTIONS FOR AGGREGATION (Filter) --
+function calculateVatDueFilter(stream, country, segment, product)
+    return stream:filter(countrySegmentProductFilterClosure(country, segment, product))
+            :aggregate( map{ country = nil }, aggregate_vatDue):reduce(reduce_stream)
+end
+```
+
+Here is the filter function which takes our 3 bin values ```country, segment and product```.
+It is also checking for ```country, segment, null``` and ```also country, null, null```.
+```lua
+-- FILTERS --
+local function countrySegmentProductFilterClosure(country_arg, segment_arg, product_arg)
+    local function countrySegmentProductFilter(rec)
+       local country_rec = rec["country"]
+       local segment_rec = rec["segment"]
+       local product_rec = rec["product"]
+
+        --if (not country_arg or type(country_arg) ~= "string") then country_arg = nil end
+        if (not segment_arg or type(segment_arg) ~= "string") then segment_arg = nil end
+        if (not product_arg or type(product_arg) ~= "string") then product_arg = nil end
+
+        local retVal = false
+
+        if (country_arg and country_arg == country_rec) then
+            retVal = true
+        else
+            return false
+        end
+
+        if segment_arg ~= nil then
+            if (segment_arg and segment_arg == segment_rec) then
+                retVal = true
+            else
+                return false
+            end
+        end
+
+        if product_arg ~= nil then
+            if (product_arg and product_arg == product_rec) then
+                retVal = true
+            else
+                return false
+            end
+        end
+
+        return retVal
+    end
+    return countrySegmentProductFilter
+end
+```
+
+In the application code we are calling the same in ```class RunnableReaderFilter``` 
+and filtering on country regardless. Finally we call the method ```getAggregateQueryFilterResult(...)```
+that will return our filtered aggregated data. It is worth noting that currently you cannot supply 
+an Aerospike Expression to do this.
+
+```java
+@Override
+protected Object[] getAggregationReport(String queryField, String packageName, String functionName) {
+
+        long startTime = System.currentTimeMillis();
+        LuaConfig.SourceDirectory = luaConfigSourcePath;
+
+        Filter f = Filter.equal("country", country);
+
+        Statement stmt = new Statement();
+        stmt.setNamespace(namespace);
+        stmt.setSetName(set);
+        stmt.setFilter( f );
+
+        ResultSet resultSet = getAggregateQueryFilterResult( queryField, stmt, packageName, functionName );
+
+        Iterator itr = resultSet.iterator();
+        if (itr.hasNext()) {
+            long endTime = System.currentTimeMillis();
+            Long timeTaken = endTime - startTime;
+            Object result = itr.next();
+            return new Object[]{result, timeTaken};
+        }
+        return null;
+    }
+
+protected ResultSet getAggregateQueryFilterResult(String queryType, Statement stmt, String packageName, String functionName){
+        if ( queryType.equalsIgnoreCase(QF_COUNTRY_SEGMENT_PRODUCT) )
+            return  client.queryAggregate(null, stmt, packageName, functionName,
+                Value.get(country), Value.get(segment), Value.get(product) );
+        else if (queryType.equalsIgnoreCase(QF_COUNTRY_SEGMENT) )
+            return  client.queryAggregate(null, stmt, packageName, functionName,
+                Value.get(country), Value.get(segment), Value.getAsNull() );
+        else if (queryType.equalsIgnoreCase(QF_COUNTRY) )
+            return client.queryAggregate(null, stmt, packageName, functionName,
+                Value.get(country), Value.getAsNull(), Value.getAsNull() );;
+        return null;
+        }    
+```
+

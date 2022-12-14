@@ -90,7 +90,6 @@ public class RunnableReaderFilter extends  RunnableReader {
         return null;
     }
 
-
     protected ResultSet getAggregateQueryFilterResult(String queryType, Statement stmt, String packageName, String functionName){
         if ( queryType.equalsIgnoreCase(QF_COUNTRY_SEGMENT_PRODUCT) )
             return  client.queryAggregate(null, stmt, packageName, functionName,
