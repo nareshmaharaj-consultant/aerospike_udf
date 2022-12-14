@@ -285,9 +285,9 @@ By not using the demo, you would fallback to the default reader configuration wh
 an aggregation query, filtering on Country, Segment and Product in order to produce 
 a tax aggregation report for Technology products sold in the Enterprise business segment
 of Italy.
-<div className="text--center">
-![img.png](img.png)
-</div>
+
+![img.png](out/artifacts/img.png)
+
 
 ```bash
 # ------ Reader -------- #
