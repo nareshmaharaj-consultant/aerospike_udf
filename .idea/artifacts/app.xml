@@ -1,6 +1,6 @@
 <component name="ArtifactManager">
-  <artifact type="jar" name="writer">
-    <output-path>$PROJECT_DIR$/out/artifacts/writer</output-path>
+  <artifact type="jar" name="app">
+    <output-path>$PROJECT_DIR$/out/artifacts/app</output-path>
     <root id="archive" name="udf.jar">
       <element id="directory" name="META-INF">
         <element id="file-copy" path="$PROJECT_DIR$/src/main/java/META-INF/MANIFEST.MF" />

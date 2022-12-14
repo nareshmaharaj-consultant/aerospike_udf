@@ -29,6 +29,8 @@ public class UDFExampleReporting {
     static String product;
 
     static String demoJobsCountryList;
+    static String demoJobsSegmentList;
+    static String demoJobsProductList;
     static boolean runAsDemo = false;
     static boolean staggerJobs = false;
     static int staggerMaxPeriod = 1000;
@@ -56,24 +58,27 @@ public class UDFExampleReporting {
     static final String OPERATION_REPORT_LABEL_SALES="sales";
 
     public UDFExampleReporting() {
-        ClientPolicy clientPolicy   = new ClientPolicy();
-        clientPolicy.user           = user;
-        clientPolicy.password       = pwd;
-        clientPolicy.authMode       = authmode;
-        this.clientPolicy           = clientPolicy;
-        AerospikeClient client      = new AerospikeClient(clientPolicy, hosts);
-        this.client                 = client;
     }
 
-    public static void main( String args []) throws InterruptedException {
+    public void main() throws InterruptedException {
         /*
             Load the property file
             Load the lue files
          */
         try {
             loadProperties();
+
+            ClientPolicy clientPolicy   = new ClientPolicy();
+            clientPolicy.user           = user;
+            clientPolicy.password       = pwd;
+            clientPolicy.authMode       = authmode;
+            this.clientPolicy           = clientPolicy;
+            AerospikeClient client      = new AerospikeClient(clientPolicy, hosts);
+            this.client                 = client;
+
             udfReader = new UDFExampleReporting();
             udfReader.registerLua();
+
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(0);
@@ -178,7 +183,16 @@ public class UDFExampleReporting {
         }
 
         String queryFilterSegment = SalesData.getRandomSegment();
+        if ( demoJobsSegmentList != null && demoJobsSegmentList.length() > 0 ){
+            String [] segmentDemoList = demoJobsSegmentList.split(",");
+            queryFilterSegment = segmentDemoList[new Random().nextInt( segmentDemoList.length) ];
+        }
+
         String queryFilterProduct = SalesData.getRandomProduct();
+        if ( demoJobsProductList != null && demoJobsProductList.length() > 0 ){
+            String [] productDemoList = demoJobsProductList.split(",");
+            queryFilterProduct = productDemoList[new Random().nextInt( productDemoList.length) ];
+        }
 
         OperationJob job = new OperationJob(jobType, operationQueryFilter, jobReportLabel, delayBetweenJobMs,
                 queryFilterCountry, queryFilterSegment, queryFilterProduct );
@@ -228,6 +242,8 @@ public class UDFExampleReporting {
         product = defaultProps.getProperty("queryFilterProduct");
         runAsDemo = Boolean.parseBoolean( defaultProps.getProperty("demoJobs") );
         demoJobsCountryList = defaultProps.getProperty("demoJobsCountryList");
+        demoJobsSegmentList = defaultProps.getProperty("demoJobsSegmentList");
+        demoJobsProductList = defaultProps.getProperty("demoJobsProductList");
         staggerJobs = Boolean.parseBoolean(defaultProps.getProperty("staggerJobs"));
         staggerMaxPeriod = Integer.parseInt(defaultProps.getProperty("staggerMaxPeriod"));
         showCompute = Boolean.parseBoolean(defaultProps.getProperty("showCompute"));
