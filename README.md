@@ -56,6 +56,8 @@ In window 2: Log into the command line interactive shell for Aerospike call aql.
 ```bash
 docker run -ti aerospike/aerospike-tools:latest aql -h  $(docker inspect -f '{{.NetworkSettings.IPAddress }}' aerospike)
 ```
+
+#### Project
 In Window 3: We will run the writer application being the dataloader.
 The directory stucture should resemble
 ```bash 
@@ -88,12 +90,14 @@ The directory stucture should resemble
 │       └── java
 ```
 
+#### Running Data Loader
 Run from the command line:
 ```java 
 java -jar out/artifacts/app/udf.jar
 ```
 By default and based on the default.properties file, a random selection of data for 10,000 records will be written to the namespace test and set financialdata in the database.
 
+#### Running Data Reader
 Change the app to reader mode by editing the default.properties file section below.
 ```bash
 # ------- Run --------- #
@@ -104,19 +108,20 @@ Now run the application again.
 ```java 
 java -jar out/artifacts/app/udf.jar
 ```
-As we have not configured the reader it will start doing the following
- - running 100 client threads
+As we have not configured the reader it will start a demo with default settings
+ - run 100 client connection threads
  - creating client jobs where jobs will either be 
-   - computing additional fields
-    - streaming data using UDFs to produce aggregated results
-    
-Results explained below and these lines can also be muted in the config file.
-Consider that the sales lines are made up of
+   - computing additional value-added fields
+   - streaming data using UDFs to produce aggregated results
+
+#### Results
+Results explained below and these lines can be muted in the config file.
+Consider sales lines are made up of significant fields
  - country - where the sale took place
  - segment - what part of industry does it refer to
  - product - what was sold
 
-In window 2: Run the following query
+In window 2: Run the following query to show a sample.
 ```bash
 SELECT segment,country,product,unitsSold,mfgPrice,salesPrice,date  FROM test.financialdata  WHERE country = "Italy"
 +--------------------+----------+-------------------------------------+------------+-----------+-------------+--------------+
@@ -130,3 +135,31 @@ SELECT segment,country,product,unitsSold,mfgPrice,salesPrice,date  FROM test.fin
 | ...
 +--------------------+----------+-------------------------------------+------------+-----------+-------------+--------------+
 ```
+Here are some of the results from the reader output.
+
+```bash
+Compute Profit bins for [C] Morocco in 1008 ms.
+Total VAT for [C] Morocco, £190,999.51 in 9 ms.
+Total SALES for [CS] Germany/Sport, £65,224.00 in 4 ms.
+No results for [CSP] India/Government/Connect for JMS
+```
+Compute is creating value added fields to the data such as queryField, totalSales, totalCost, profit, profitMargin, taxRates and taxDue
+We will discuss the field queryField in more detail further down.
+```bash
+SELECT  *  FROM test.financialdata  WHERE country = "Morocco"
++--------------------+-----------+--------------------------------+-----------+----------+------------+--------------+----------------------------------------------------------------------------------------------------------------------------------+------------+-----------+---------+--------------+----------+-------------------+
+| segment            | country   | product                        | unitsSold | mfgPrice | salesPrice | date         | queryField                                                                                                                       | totalSales | totalCost | profit  | profitMargin | taxRates | taxDue            |
++--------------------+-----------+--------------------------------+-----------+----------+------------+--------------+----------------------------------------------------------------------------------------------------------------------------------+------------+-----------+---------+--------------+----------+-------------------+
+| "Small Business"   | "Morocco" | "Cloud"                        | 252       | 1        | 147        | "01/10/2013" | MAP('{"MAR/CS":"Morocco/Small Business", "MAR/CSP":"Morocco/Small Business/Cloud", "MAR/C":"Morocco"}')                          | 37044      | 252       | 36792   | 99           | 20       | 6132              |
+| "Government"       | "Morocco" | "Aerospike Cloud"              | 1397      | 0        | 6          | "01/03/2014" | MAP('{"MAR/CS":"Morocco/Government", "MAR/CSP":"Morocco/Government/Aerospike Cloud", "MAR/C":"Morocco"}')                        | 8382       | 0         | 8382    | 100          | 20       | 1397              |
+| "Midmarket"        | "Morocco" | "Connect for Spark"            | 1948      | 204      | 110        | "01/01/2014" | MAP('{"MAR/CS":"Morocco/Midmarket", "MAR/CSP":"Morocco/Midmarket/Connect for Spark", "MAR/C":"Morocco"}')                        | 214280     | 397392    | -183112 | -86          | 20       | 0                 |
+| "Enterprise"       | "Morocco" | "Aerospike SQL"                | 1897      | 3        | 6          | "01/04/2014" | MAP('{"MAR/CS":"Morocco/Enterprise", "MAR/CSP":"Morocco/Enterprise/Aerospike SQL", "MAR/C":"Morocco"}')                          | 11382      | 5691      | 5691    | 50           | 20       | 948.5             |
+| "Enterprise"       | "Morocco" | "Connect for Presto"           | 49        | 18       | 105        | "01/11/2013" | MAP('{"MAR/CS":"Morocco/Enterprise", "MAR/CSP":"Morocco/Enterprise/Connect for Presto", "MAR/C":"Morocco"}')                     | 5145       | 882       | 4263    | 82           | 20       | 710.5             |
+| "Small Business"   | "Morocco" | "Aerospike Tools"              | 504       | 0        | 7          | "01/10/2014" | MAP('{"MAR/CS":"Morocco/Small Business", "MAR/CSP":"Morocco/Small Business/Aerospike Tools", "MAR/C":"Morocco"}')                | 3528       | 0         | 3528    | 100          | 20       | 588               |
+| "Small Business"   | "Morocco" | "Connect for Spark"            | 538       | 54       | 114        | "01/12/2014" | MAP('{"MAR/CS":"Morocco/Small Business", "MAR/CSP":"Morocco/Small Business/Connect for Spark", "MAR/C":"Morocco"}')              | 61332      | 29052     | 32280   | 52           | 20       | 5380              |
+| "Small Business"   | "Morocco" | "Aerospike on AWS"             | 129       | 7        | 5          | "01/09/2014" | MAP('{"MAR/CS":"Morocco/Small Business", "MAR/CSP":"Morocco/Small Business/Aerospike on AWS", "MAR/C":"Morocco"}')               | 645        | 903       | -258    | -40          | 20       | 0                 |
+| "Channel Partners" | "Morocco" | "Connect for Presto"           | 282       | 80       | 7          | "01/10/2014" | MAP('{"MAR/CS":"Morocco/Channel Partners", "MAR/CSP":"Morocco/Channel Partners/Connect for Presto", "MAR/C":"Morocco"}')         | 1974       | 22560     | -20586  | -1043        | 20       | 0                 |
+| "Channel Partners" | "Morocco" | "Dynamic Cluster Management"   | 1564      | 5        | 105        | "01/07/2014" | MAP('{"MAR/CS":"Morocco/Channel Partners", "MAR/CSP":"Morocco/Channel Partners/Dynamic Cluster Management", "MAR/C":"Morocco"}') | 164220     | 7820      | 156400  | 95           | 20       | 26066.66666666666 |
++--------------------+-----------+--------------------------------+-----------+----------+------------+--------------+----------------------------------------------------------------------------------------------------------------------------------+------------+-----------+---------+--------------+----------+-------------------+
+```
+
