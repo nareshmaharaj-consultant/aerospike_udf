@@ -550,6 +550,6 @@ which calls the aggregation. Note the filter being used is ```IndexCollectionTyp
     }
 ```
 
-If you are filtering at the UDF the ```queryField``` bin may not be required but consider as the dataset grows using a Secondary 
+If filtering in the UDF the ```queryField``` bin may not be required but consider as the dataset grows using a Secondary 
 Index in conjunction with the ```queryField``` might provide better overall performance.
 
