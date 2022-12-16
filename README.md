@@ -218,7 +218,7 @@ SELECT * FROM test.financialdata IN MAPVALUES WHERE queryField = "India/Governme
 
 OK
 ```
-We can now see in *India*, for the market segment *Government* only has 1 product line was sold - *"Connect for Spark"*.
+We can now see in *India*, for the market segment *Government* that it only has 1 product line sold - *"Connect for Spark"*.
 
 If we open this up even further, we can see all products sold in India.
 ```text
@@ -277,7 +277,7 @@ where the intention of the query is get aggregated results returned.
 Given the default behaviour is to use UDF filtering, let's checkout the implementation.
 
 As mentioned previously, Filtering in this example is based on more than one bin as follows. 
-If there was only 1 bin then we would not need to do much else.
+If there was only 1 bin then much of what we are x would not be required. 
 
 ```segment            | country | product```
 
@@ -319,7 +319,7 @@ queryFilterProduct=Technology
 ```
 You might have noticed the line below which reinforces we are using the UDF code for filtering.
 ```bash 
-useUDFFilterLogic=false
+useUDFFilterLogic=true
 ```
 
 #### UDF Filter code
@@ -442,7 +442,7 @@ Earlier, we mentioned about the bin ```queryField``` but we did not explain the 
 ```bash
 MAP('{"IND/CS":"India/Channel Partners", "IND/CSP":"India/Channel Partners/Aerospike Database", "IND/C":"India"}')
 ```
-Or the easier on the eye version in JSON
+Or the easier formatted JSON version of the same
 ```json
 {
   "IND/CS": "India/Channel Partners",
@@ -450,7 +450,7 @@ Or the easier on the eye version in JSON
   "IND/C": "India"
 }
 ```
-So by now you should be familiar with the content. But to be sure lets discuss one of the lines.
+So by now you should be familiar with the content. But to be sure let's discuss one of the lines.
 ```json
 "IND/CSP": "India/Channel Partners/Aerospike Database"
 ```
@@ -459,7 +459,7 @@ So by now you should be familiar with the content. But to be sure lets discuss o
 - Channel Partners is the segment
 - Aerospike Database is the product line
 
-This means that we can search the bin independently for all records based on the 
+This means that we can search the bin independently for all records based on: 
 - country
 - country and segment
 - or all three country, segment and product
