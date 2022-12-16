@@ -4,7 +4,7 @@
 
 
 
-### User Defined Functions
+### Context
 
 User-Defined Functions (UDF) are *functions* that run on the server side where the database hosts are located.
 UDF(s) are written in Lua. Lua is a powerful, fast, lightweight, embeddable scripting language.
